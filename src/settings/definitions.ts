@@ -58,8 +58,8 @@ export const SETTING_DEFINITIONS = {
     label: 'Compact tool cards',
     descriptions: { zh: '紧凑工具卡' },
     group: 'conversation',
-    hint: 'Read, search and terminal calls (Bash/PowerShell, file reads, image reads, glob/grep) show as one summary line from the first call on, and consecutive ones share it: `▸ Bash ×5 · Read ×2 · 12s`. The line grows in place — a new call bumps a count, the running command and thinking after a call show on it, the time is what the calls spent running. No live or settled output. Errors, non-zero exits, edits and assistant text stay as their own cards. Ctrl+O or a click expands.',
-    hintDescriptions: { zh: '读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是一行摘要，连续的共用这一行：`▸ Bash ×5 · Read ×2 · 12s`。摘要原地增长：新调用只让计数加一，正在运行的命令和调用之后的思考显示在这一行上，时间是这些调用实际运行的时长。不显示实时或最终输出。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。' },
+    hint: 'Read, search and terminal calls (Bash/PowerShell, file reads, image reads, glob/grep) show as one dim summary line from the first call on, and consecutive ones share it: `Read 2 files, ran 3 shell commands`. The line grows in place — a new call changes a count, a kind still running reads `running 1 shell command…`. No output, no per-call timer. Errors, non-zero exits, edits and assistant text stay as their own cards. Ctrl+O or a click expands.',
+    hintDescriptions: { zh: '读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是一行灰色摘要，连续的共用这一行：`读取了 2 个文件，运行了 3 条命令`。摘要原地增长：新调用只改计数，还在运行的种类写成「正在运行 1 条命令…」。不显示输出，也不逐条计时。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。' },
     kind: 'boolean',
   },
   'companion.skin': {

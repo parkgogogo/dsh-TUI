@@ -1060,6 +1060,25 @@ const dict = {
   'tool-tip-exit': { zh: '退出码 {{code}}', en: 'exit {{code}}' },
   'tool-tip-signal': { zh: '信号 {{name}}', en: 'signal {{name}}' },
 
+  // ── 紧凑工具组摘要句（components/Chat/ToolGroup.tsx，设置 compactTools）──
+  // 按种类拼成一句：`Read 2 files, ran 1 shell command`；仍在运行的种类用
+  // 进行时（-live），整句末尾补 `…`。en 首字母由调用方大写。
+  'tool-run-shell': { zh: '运行了 {{count}} 条命令', en: { one: 'ran {{count}} shell command', other: 'ran {{count}} shell commands' } },
+  'tool-run-shell-live': { zh: '正在运行 {{count}} 条命令', en: { one: 'running {{count}} shell command', other: 'running {{count}} shell commands' } },
+  'tool-run-read': { zh: '读取了 {{count}} 个文件', en: { one: 'read {{count}} file', other: 'read {{count}} files' } },
+  'tool-run-read-live': { zh: '正在读取 {{count}} 个文件', en: { one: 'reading {{count}} file', other: 'reading {{count}} files' } },
+  'tool-run-image': { zh: '查看了 {{count}} 张图片', en: { one: 'viewed {{count}} image', other: 'viewed {{count}} images' } },
+  'tool-run-image-live': { zh: '正在查看 {{count}} 张图片', en: { one: 'viewing {{count}} image', other: 'viewing {{count}} images' } },
+  'tool-run-search': { zh: '搜索了 {{count}} 个模式', en: { one: 'searched for {{count}} pattern', other: 'searched for {{count}} patterns' } },
+  'tool-run-search-live': { zh: '正在搜索 {{count}} 个模式', en: { one: 'searching for {{count}} pattern', other: 'searching for {{count}} patterns' } },
+  'tool-run-list': { zh: '列出了 {{count}} 个目录', en: { one: 'listed {{count}} directory', other: 'listed {{count}} directories' } },
+  'tool-run-list-live': { zh: '正在列出 {{count}} 个目录', en: { one: 'listing {{count}} directory', other: 'listing {{count}} directories' } },
+  'tool-run-web': { zh: '进行了 {{count}} 次网页搜索', en: { one: 'ran {{count}} web search', other: 'ran {{count}} web searches' } },
+  'tool-run-web-live': { zh: '正在进行 {{count}} 次网页搜索', en: { one: 'running {{count}} web search', other: 'running {{count}} web searches' } },
+  'tool-run-fetch': { zh: '抓取了 {{count}} 个网页', en: { one: 'fetched {{count}} page', other: 'fetched {{count}} pages' } },
+  'tool-run-fetch-live': { zh: '正在抓取 {{count}} 个网页', en: { one: 'fetching {{count}} page', other: 'fetching {{count}} pages' } },
+  'tool-run-join': { zh: '，', en: ', ' },
+
   // ── 工具卡本体（AssistantToolUseMessage.tsx / SplitDiffView.tsx）─────
   // 工具名走 `tool-name-*` 家族：displayName() 用字面键映射表查字典（键在
   // 代码里以字面量出现，无需登记 DYNAMIC_PREFIXES）。bash / powershell 是

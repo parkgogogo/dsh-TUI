@@ -412,26 +412,20 @@ export interface JobRow {
  * whenever the visible-row window rebuilds.
  */
 /** Fold summary of a run of consecutive tool calls (see ChatRow.toolGroup). */
+/** What a folded tool call did, for the run's summary sentence. */
+export type ToolGroupKind = 'shell' | 'read' | 'image' | 'search' | 'list' | 'web' | 'fetch'
+
 export interface ToolGroupRow {
   /** First call of the run: renders the summary line. */
   head: boolean
   /** Members hidden behind the summary, running calls included: the
-   *  summary line itself carries the live call, so the run grows in place. */
+   *  summary line itself carries the live state, so the run grows in place. */
   folded: boolean
-  /** Display name → call count, in first-seen order. */
-  names: ReadonlyArray<readonly [string, number]>
-  /** Time the settled calls spent running (overlapping parallel calls
-   *  counted once) — the sum the cards' own chips show, model gaps left out. */
-  settledMs: number
-  /** Earliest start of a call still running; absent once all settled. */
-  runningSince?: number
-  /** Command on the line: the latest running call's, else a lone call's. */
-  title?: string
-  /** The run ends in a thinking row that is still streaming. */
-  thinking?: boolean
   /** Calls in the run — a lone groupable call is a run of one, so the line
    *  keeps one shape from the first call on and only its counts change. */
   size: number
+  /** Call counts per kind in first-seen order; `live` while one still runs. */
+  kinds: ReadonlyArray<{ kind: ToolGroupKind; count: number; live: boolean }>
 }
 
 export interface JobGroupRow {

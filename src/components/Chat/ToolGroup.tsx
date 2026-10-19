@@ -1,9 +1,7 @@
 import React from 'react'
-import { Box, Text, useAnimationFrame } from '../../ui.js'
-import type { ChatRow, ToolGroupRow, ToolRow } from '../../adapter/ports/channel-view.js'
-import { formatDuration } from '../../terminal-utils/format.js'
-import { t } from '../../i18n.js'
-import { displayName } from '../messages/AssistantToolUseMessage.js'
+import { Box, Text } from '../../ui.js'
+import type { ChatRow, ToolGroupKind, ToolGroupRow, ToolRow } from '../../adapter/ports/channel-view.js'
+import { t, type I18nKey } from '../../i18n.js'
 
 /** Tool ids that read or run without changing files, for backends whose
  *  views do not say (a generic card): these may join a folded run. */
@@ -30,38 +28,19 @@ export function toolGroupable(tool: ToolRow | undefined): boolean {
   return GROUPABLE_TOOL_NAMES.has(tool.name.toLowerCase())
 }
 
-/** Name a call counts under on the summary line (`Read image`, `Bash`). */
-function toolLabel(tool: ToolRow): string {
-  return displayName(tool.name, (tool.resultView ?? tool.callView)?.displayKey).replace(/_/g, ' ')
-}
+const SHELL_NAMES = new Set(['bash', 'powershell', 'sh', 'shell', 'terminal'])
 
-/** The call's own text for the summary line: a terminal command as is; a
- *  card title that opens with the tool's name (`Read x.txt`, `Read image
- *  pic.png`) loses it — the line already names the tool. First line only. */
-function summaryTitle(tool: ToolRow): string | undefined {
-  const title = (tool.resultView?.title ?? tool.callView?.title)?.split('\n', 1)[0]?.trim()
-  if (title === undefined) return undefined
-  const label = toolLabel(tool)
-  return title.toLowerCase().startsWith(`${label.toLowerCase()} `) ? title.slice(label.length + 1).trim() : title
-}
-
-/** Length of the union of `[start, end]` spans: parallel calls count once. */
-function unionMs(spans: Array<[number, number]>): number {
-  spans.sort((a, b) => a[0] - b[0])
-  let total = 0
-  let from = -Infinity
-  let to = -Infinity
-  for (const [start, end] of spans) {
-    if (start > to) {
-      if (to > from) total += to - from
-      from = start
-      to = end
-    } else if (end > to) {
-      to = end
-    }
-  }
-  if (to > from) total += to - from
-  return total
+/** What a groupable call did, for the summary sentence. */
+export function toolKind(tool: ToolRow): ToolGroupKind {
+  const name = tool.name.toLowerCase()
+  const card = (tool.resultView ?? tool.callView)?.card
+  if (name === 'read_image') return 'image'
+  if (card === 'terminal' || SHELL_NAMES.has(name)) return 'shell'
+  if (card === 'read' || name === 'read') return 'read'
+  if (name === 'ls' || name === 'list') return 'list'
+  if (name === 'web_search' || name === 'websearch') return 'web'
+  if (name === 'web_fetch' || name === 'webfetch') return 'fetch'
+  return 'search'
 }
 
 /** Hash input for the visible-rows cache: tool statuses land in place, and
@@ -74,12 +53,11 @@ export function toolGroupCode(tool: ToolRow): number {
  * Fold runs of consecutive groupable tool calls in `out` (in place, on
  * shallow copies — rows may arrive frozen). A lone call is a run of one: the
  * summary line is the call's only shape from its first frame, so a second
- * call bumps a count instead of swapping a card for a summary. Thinking rows
- * after a call join the run too, trailing ones included: drawn on their own
- * they would sit under the summary until the next call folded them away, so
- * live thinking shows on the summary line instead. The head row carries the
- * summary; every other member is added to `foldedMembers`, running calls
- * included — the summary shows the live call. A click on the summary
+ * call changes a count instead of swapping a card for a summary. Thinking
+ * rows after a call join the run too, trailing ones included: drawn on their
+ * own they would sit under the summary until the next call folded them
+ * away. The head row carries the summary; every other member is added to
+ * `foldedMembers`, running calls included. A click on the summary
  * (expandedRows) or Ctrl+O unfolds the run.
  */
 export function foldToolRuns(
@@ -96,36 +74,23 @@ export function foldToolRuns(
       if ((next.kind === 'tool' && toolGroupable(next.tool)) || next.kind === 'reasoning') end = k
       else break
     }
-    const tools: ToolRow[] = []
+    const kinds = new Map<ToolGroupKind, { count: number; live: boolean }>()
+    let size = 0
     for (let k = i; k <= end; k++) {
       const tool = out[k]!.kind === 'tool' ? out[k]!.tool : undefined
-      if (tool !== undefined) tools.push(tool)
+      if (tool === undefined) continue
+      size++
+      const kind = toolKind(tool)
+      const entry = kinds.get(kind) ?? { count: 0, live: false }
+      entry.count++
+      entry.live = entry.live || tool.status === 'running'
+      kinds.set(kind, entry)
     }
-    const names = new Map<string, number>()
-    let live: ToolRow | undefined
-    let runningSince: number | undefined
-    const spans: Array<[number, number]> = []
-    for (const tool of tools) {
-      const name = toolLabel(tool)
-      names.set(name, (names.get(name) ?? 0) + 1)
-      if (tool.status === 'running') {
-        live = tool
-        runningSince = Math.min(runningSince ?? tool.startedAt, tool.startedAt)
-      } else {
-        spans.push([tool.startedAt, tool.startedAt + (tool.durationMs ?? 0)])
-      }
-    }
-    const shown = live ?? (tools.length === 1 ? tools[0] : undefined)
-    const title = shown === undefined ? undefined : summaryTitle(shown)
     const folded = !expanded && !expandedRows.has(out[i]!.id)
     const summary = {
       folded,
-      names: [...names],
-      settledMs: unionMs(spans),
-      size: tools.length,
-      ...(runningSince === undefined ? {} : { runningSince }),
-      ...(title === undefined || title === '' ? {} : { title }),
-      ...(out[end]!.kind === 'reasoning' && out[end]!.streaming === true ? { thinking: true } : {}),
+      size,
+      kinds: [...kinds].map(([kind, { count, live }]) => ({ kind, count, live })),
     }
     for (let k = i; k <= end; k++) {
       const row = out[k]!
@@ -136,42 +101,49 @@ export function foldToolRuns(
   }
 }
 
+const KIND_KEYS: Record<ToolGroupKind, readonly [done: I18nKey, live: I18nKey]> = {
+  shell: ['tool-run-shell', 'tool-run-shell-live'],
+  read: ['tool-run-read', 'tool-run-read-live'],
+  image: ['tool-run-image', 'tool-run-image-live'],
+  search: ['tool-run-search', 'tool-run-search-live'],
+  list: ['tool-run-list', 'tool-run-list-live'],
+  web: ['tool-run-web', 'tool-run-web-live'],
+  fetch: ['tool-run-fetch', 'tool-run-fetch-live'],
+}
+
 /**
- * Summary line of a tool run (`row.toolGroup` on its head):
+ * The summary sentence, in the kinds' first-seen order:
  *
- *   ▸ Bash · 1s · sleep 5                    (a lone call)
- *   ▸ Bash ×6 · Read ×2 · 14s · sleep 5      (a call still running)
- *   ▸ Bash ×5 · Read ×2 · 12s · Thinking…   (thinking after the last call)
- *   ▸ Bash ×5 · Read ×2 · 12s
+ *   Ran 2 shell commands
+ *   Read 2 files, running 1 shell command…      (a call still running)
  *
- * The duration is the time the calls spent running (what their cards' chips
- * add up to; the model's gaps between calls are left out). While a call runs
- * it ticks and the live command trails it (cut first when the row is narrow). Clicking the line
- * toggles the run, the same gesture as the job-group header.
+ * A kind with a call still running reads in the progressive and the line
+ * ends in `…`; when the call settles only that clause changes.
+ */
+export function toolGroupSummary(group: Pick<ToolGroupRow, 'kinds'>): string {
+  const parts = group.kinds.map(({ kind, count, live }) => t(KIND_KEYS[kind][live ? 1 : 0], { count }))
+  const text = parts.join(t('tool-run-join'))
+  const sentence = text.charAt(0).toUpperCase() + text.slice(1)
+  return group.kinds.some(entry => entry.live) ? `${sentence}…` : sentence
+}
+
+/**
+ * Summary line of a tool run (`row.toolGroup` on its head): one dim line
+ * aligned with the transcript text, like `Ran 2 shell commands`. Clicking
+ * it toggles the run, the same gesture as the job-group header.
  */
 export function ToolGroupHeader({ group, onToggle }: { group: ToolGroupRow; onToggle?(): void }): React.ReactNode {
   const [hovered, setHovered] = React.useState(false)
-  const live = group.runningSince !== undefined
-  // 1 s tick while a call runs; elapsed derives from the wall clock.
-  const [ref] = useAnimationFrame(live ? 1000 : null)
-  const names = group.names.map(([name, count]) => (count > 1 ? `${name} ×${count}` : name)).join(' · ')
-  const runningMs = group.runningSince === undefined ? 0 : Math.max(0, Date.now() - group.runningSince)
-  const duration = ` · ${formatDuration(group.settledMs + runningMs)}`
-  const title = group.title === undefined ? '' : ` · ${group.title}`
-  const thinking = group.thinking === true && !live ? ` · ${t('thinking-label')}…` : ''
   return (
     <Box
-      ref={ref}
       flexDirection="row"
       onClick={onToggle}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* A fixed column: a narrow row truncates the text, never this gap. */}
-      <Box flexShrink={0} width={2}>
-        <Text color={hovered ? 'accent' : 'inactive'}>{group.folded ? '▸' : '▾'}</Text>
-      </Box>
-      <Text wrap="truncate-end" dimColor={!hovered}>{names + duration + title + thinking}</Text>
+      {/* The bullet column of the rows around it, left blank. */}
+      <Box flexShrink={0} width={2} />
+      <Text wrap="truncate-end" dimColor={!hovered}>{toolGroupSummary(group)}</Text>
     </Box>
   )
 }
