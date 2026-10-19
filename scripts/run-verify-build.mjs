@@ -128,6 +128,7 @@ const GATES = [
   'verify:mermaid-diagram',
   'verify:latex-math',
   'verify:settings',
+  'verify:tool-group',
   'verify:math-renderer',
   'verify:math-block-image',
   'verify:math-inline-image',

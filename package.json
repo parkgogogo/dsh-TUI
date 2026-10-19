@@ -179,6 +179,7 @@
     "verify:theme-preview": "node --import tsx/esm scripts/verify-theme-preview.tsx",
     "verify:tips": "node --import tsx/esm scripts/verify-tips.tsx",
     "verify:thinking-preview": "node --import tsx/esm scripts/verify-thinking-preview.tsx",
+    "verify:tool-group": "node --import tsx/esm scripts/verify-tool-group.ts",
     "verify:streaming-markdown-spacing": "node --import tsx/esm scripts/verify-streaming-markdown-spacing.tsx",
     "verify:wheel-selection": "node --import tsx/esm scripts/verify-wheel-selection.ts",
     "verify:pointer-events": "node --import tsx/esm scripts/verify-pointer-events.ts",

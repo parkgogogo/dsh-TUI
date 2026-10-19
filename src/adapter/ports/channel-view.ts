@@ -420,12 +420,18 @@ export interface ToolGroupRow {
   folded: boolean
   /** Display name → call count, in first-seen order. */
   names: ReadonlyArray<readonly [string, number]>
-  /** First call start. */
-  startedAt: number
-  /** Latest call finish; absent while any call is still running. */
-  endedAt?: number
-  /** Latest still-running call, shown on the summary line. */
-  live?: { title?: string }
+  /** Time the settled calls spent running (overlapping parallel calls
+   *  counted once) — the sum the cards' own chips show, model gaps left out. */
+  settledMs: number
+  /** Earliest start of a call still running; absent once all settled. */
+  runningSince?: number
+  /** Command on the line: the latest running call's, else a lone call's. */
+  title?: string
+  /** The run ends in a thinking row that is still streaming. */
+  thinking?: boolean
+  /** Calls in the run — a lone groupable call is a run of one, so the line
+   *  keeps one shape from the first call on and only its counts change. */
+  size: number
 }
 
 export interface JobGroupRow {

@@ -590,7 +590,7 @@ dsh-tui 自身区块在 0.1.7 写入当前 profile 的 `cordis.patch.yml`，旧�
 | scrollGutter | 转录边栏：timeline（轮次时间线，默认）/ scrollbar（比例滚动条）/ hidden。立即生效 |
 | pageMargin | 页边距：整屏相对终端四边向里缩。预设 none / slim / normal（默认）/ roomy，或自定义 `NxM`（细节见下）。立即生效 |
 | foldTerminalCommand | 折叠终端命令（默认关）：终端卡（Bash/PowerShell）多行命令折成首行 + 计数；`Ctrl+O` 或点击卡片展开 |
-| compactTools | 紧凑工具卡（默认关）：终端卡和读图片只剩标题一行（不显示输出，耗时在标题上计时，长命令截断成一行）；两次以上连续的读文件、搜索、终端调用折成一行摘要 `▸ Bash ×5 · Read ×2 · 12s`，摘要原地增长，正在运行的那条命令显示在摘要这一行上；报错、非零退出码、改文件和助手的文字照常单独显示；`Ctrl+O` 或点击展开 |
+| compactTools | 紧凑工具卡（默认关）：读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是一行摘要，连续的共用这一行：`▸ Bash ×5 · Read ×2 · 12s`。摘要原地增长：新调用只让计数加一，正在运行的命令和调用之后的思考显示在这一行上，时间是这些调用实际运行的时长。不显示实时或最终输出。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。 |
 | expandEditor | 全屏草稿编辑（默认开）：输入行尾 `⛶` 或 `Ctrl+Shift+E` 展开成整屏编辑器；`Ctrl+Enter` 发送、`Esc` 收起（草稿还在）；关掉后入口不显示 |
 | statusBar.* | 上表全部状态栏开关（compact/model/thinking/cwd/contextUsage/cache/tokens/cost/tps/gitBranch/sessionTitle/sessionId/mode/contextBar/activity/trajectory；statusBar.sessionId 是底栏显示开关，与 cordis 的启动 sessionId 无关） |
 

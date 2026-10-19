@@ -2060,14 +2060,19 @@ function TranscriptRow({
       // run is unfolded (a running call shows on the summary line). The
       // head's block margin moves up to the summary, like a job group's.
       const showCard = toolGroup === undefined || !toolGroup.folded
+      // An unfolded lone call is just its card: a summary over a run of one
+      // would repeat the card's own header. Clicking the card (same row
+      // toggle) folds it back to the summary line.
+      const showHeader = toolGroup !== undefined && (toolGroup.folded || toolGroup.size > 1)
       return (
         <Box flexDirection="column" ref={ref} marginTop={toolGroup !== undefined && marginTopOnTurn ? 1 : 0}>
-          {toolGroup !== undefined && <ToolGroupHeader group={toolGroup} onToggle={toggleJobGroup} />}
+          {showHeader && <ToolGroupHeader group={toolGroup} onToggle={toggleJobGroup} />}
           {showCard && <ToolLeafRow
             tool={tool}
             marginTopOnTurn={toolGroup === undefined && marginTopOnTurn}
-            // The head's row toggle unfolds the run, not the card body.
-            verbose={toolGroup === undefined ? isExpanded || expanded : expanded}
+            // The head's row toggle unfolds the run, not the card body — but
+            // unfolding a lone call is asking for that call's body.
+            verbose={toolGroup === undefined ? isExpanded || expanded : expanded || toolGroup.size === 1}
             isSelected={isSelected}
             isExpanded={isExpanded}
             footnote={toolFootnote}

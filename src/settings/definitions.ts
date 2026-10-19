@@ -58,8 +58,8 @@ export const SETTING_DEFINITIONS = {
     label: 'Compact tool cards',
     descriptions: { zh: '紧凑工具卡' },
     group: 'conversation',
-    hint: 'Terminal cards (Bash/PowerShell) and image reads collapse to their header line: no live or settled output, the elapsed time ticks on the header. Two or more consecutive read, search and terminal calls fold into one summary line (`▸ Bash ×5 · Read ×2 · 12s`) that grows in place: the call still running shows on that line. Errors, non-zero exits, edits and assistant text stay as their own cards. Ctrl+O or a click expands.',
-    hintDescriptions: { zh: '终端卡（Bash/PowerShell）和读图片只剩标题一行：不显示实时或最终输出，耗时在标题上计时。两次以上连续的读文件、搜索、终端调用折成一行摘要（`▸ Bash ×5 · Read ×2 · 12s`），摘要原地增长：正在运行的那条命令显示在摘要这一行上。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。' },
+    hint: 'Read, search and terminal calls (Bash/PowerShell, file reads, image reads, glob/grep) show as one summary line from the first call on, and consecutive ones share it: `▸ Bash ×5 · Read ×2 · 12s`. The line grows in place — a new call bumps a count, the running command and thinking after a call show on it, the time is what the calls spent running. No live or settled output. Errors, non-zero exits, edits and assistant text stay as their own cards. Ctrl+O or a click expands.',
+    hintDescriptions: { zh: '读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是一行摘要，连续的共用这一行：`▸ Bash ×5 · Read ×2 · 12s`。摘要原地增长：新调用只让计数加一，正在运行的命令和调用之后的思考显示在这一行上，时间是这些调用实际运行的时长。不显示实时或最终输出。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。' },
     kind: 'boolean',
   },
   'companion.skin': {

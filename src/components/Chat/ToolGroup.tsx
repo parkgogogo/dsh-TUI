@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Text, useAnimationFrame } from '../../ui.js'
 import type { ChatRow, ToolGroupRow, ToolRow } from '../../adapter/ports/channel-view.js'
 import { formatDuration } from '../../terminal-utils/format.js'
+import { t } from '../../i18n.js'
 import { displayName } from '../messages/AssistantToolUseMessage.js'
 
 /** Tool ids that read or run without changing files, for backends whose
@@ -29,6 +30,40 @@ export function toolGroupable(tool: ToolRow | undefined): boolean {
   return GROUPABLE_TOOL_NAMES.has(tool.name.toLowerCase())
 }
 
+/** Name a call counts under on the summary line (`Read image`, `Bash`). */
+function toolLabel(tool: ToolRow): string {
+  return displayName(tool.name, (tool.resultView ?? tool.callView)?.displayKey).replace(/_/g, ' ')
+}
+
+/** The call's own text for the summary line: a terminal command as is; a
+ *  card title that opens with the tool's name (`Read x.txt`, `Read image
+ *  pic.png`) loses it — the line already names the tool. First line only. */
+function summaryTitle(tool: ToolRow): string | undefined {
+  const title = (tool.resultView?.title ?? tool.callView?.title)?.split('\n', 1)[0]?.trim()
+  if (title === undefined) return undefined
+  const label = toolLabel(tool)
+  return title.toLowerCase().startsWith(`${label.toLowerCase()} `) ? title.slice(label.length + 1).trim() : title
+}
+
+/** Length of the union of `[start, end]` spans: parallel calls count once. */
+function unionMs(spans: Array<[number, number]>): number {
+  spans.sort((a, b) => a[0] - b[0])
+  let total = 0
+  let from = -Infinity
+  let to = -Infinity
+  for (const [start, end] of spans) {
+    if (start > to) {
+      if (to > from) total += to - from
+      from = start
+      to = end
+    } else if (end > to) {
+      to = end
+    }
+  }
+  if (to > from) total += to - from
+  return total
+}
+
 /** Hash input for the visible-rows cache: tool statuses land in place, and
  *  a status change can split a run or fold a member. */
 export function toolGroupCode(tool: ToolRow): number {
@@ -36,13 +71,16 @@ export function toolGroupCode(tool: ToolRow): number {
 }
 
 /**
- * Fold runs of ≥2 consecutive groupable tool calls in `out` (in place, on
- * shallow copies — rows may arrive frozen). Settled thinking rows between the
- * calls join the run; trailing ones stay outside it. The head row carries the
+ * Fold runs of consecutive groupable tool calls in `out` (in place, on
+ * shallow copies — rows may arrive frozen). A lone call is a run of one: the
+ * summary line is the call's only shape from its first frame, so a second
+ * call bumps a count instead of swapping a card for a summary. Thinking rows
+ * after a call join the run too, trailing ones included: drawn on their own
+ * they would sit under the summary until the next call folded them away, so
+ * live thinking shows on the summary line instead. The head row carries the
  * summary; every other member is added to `foldedMembers`, running calls
- * included — the summary shows the live call, so a new call bumps a count in
- * place instead of drawing a card that folds away when it settles. A click on
- * the summary (expandedRows) or Ctrl+O unfolds the run.
+ * included — the summary shows the live call. A click on the summary
+ * (expandedRows) or Ctrl+O unfolds the run.
  */
 export function foldToolRuns(
   out: ChatRow[],
@@ -55,34 +93,39 @@ export function foldToolRuns(
     let end = i
     for (let k = i + 1; k < out.length; k++) {
       const next = out[k]!
-      if (next.kind === 'tool' && toolGroupable(next.tool)) end = k
-      else if (next.kind !== 'reasoning' || next.streaming === true) break
+      if ((next.kind === 'tool' && toolGroupable(next.tool)) || next.kind === 'reasoning') end = k
+      else break
     }
     const tools: ToolRow[] = []
     for (let k = i; k <= end; k++) {
       const tool = out[k]!.kind === 'tool' ? out[k]!.tool : undefined
       if (tool !== undefined) tools.push(tool)
     }
-    if (tools.length < 2) {
-      i = end
-      continue
-    }
     const names = new Map<string, number>()
-    let endedAt = 0
     let live: ToolRow | undefined
+    let runningSince: number | undefined
+    const spans: Array<[number, number]> = []
     for (const tool of tools) {
-      const name = displayName(tool.name, (tool.resultView ?? tool.callView)?.displayKey).replace(/_/g, ' ')
+      const name = toolLabel(tool)
       names.set(name, (names.get(name) ?? 0) + 1)
-      if (tool.status === 'running') live = tool
-      endedAt = Math.max(endedAt, tool.startedAt + (tool.durationMs ?? 0))
+      if (tool.status === 'running') {
+        live = tool
+        runningSince = Math.min(runningSince ?? tool.startedAt, tool.startedAt)
+      } else {
+        spans.push([tool.startedAt, tool.startedAt + (tool.durationMs ?? 0)])
+      }
     }
-    const liveTitle = live === undefined ? undefined : (live.resultView?.title ?? live.callView?.title)?.split('\n', 1)[0]
+    const shown = live ?? (tools.length === 1 ? tools[0] : undefined)
+    const title = shown === undefined ? undefined : summaryTitle(shown)
     const folded = !expanded && !expandedRows.has(out[i]!.id)
     const summary = {
       folded,
       names: [...names],
-      startedAt: tools[0]!.startedAt,
-      ...(live === undefined ? { endedAt } : { live: liveTitle === undefined ? {} : { title: liveTitle } }),
+      settledMs: unionMs(spans),
+      size: tools.length,
+      ...(runningSince === undefined ? {} : { runningSince }),
+      ...(title === undefined || title === '' ? {} : { title }),
+      ...(out[end]!.kind === 'reasoning' && out[end]!.streaming === true ? { thinking: true } : {}),
     }
     for (let k = i; k <= end; k++) {
       const row = out[k]!
@@ -96,33 +139,39 @@ export function foldToolRuns(
 /**
  * Summary line of a tool run (`row.toolGroup` on its head):
  *
- *   ▸ Bash ×5 · Read ×2 · 12s
+ *   ▸ Bash · 1s · sleep 5                    (a lone call)
  *   ▸ Bash ×6 · Read ×2 · 14s · sleep 5      (a call still running)
+ *   ▸ Bash ×5 · Read ×2 · 12s · Thinking…   (thinking after the last call)
+ *   ▸ Bash ×5 · Read ×2 · 12s
  *
- * While a call runs the duration ticks from the run's start and the live
- * command trails it (cut first when the row is narrow). Clicking the line
+ * The duration is the time the calls spent running (what their cards' chips
+ * add up to; the model's gaps between calls are left out). While a call runs
+ * it ticks and the live command trails it (cut first when the row is narrow). Clicking the line
  * toggles the run, the same gesture as the job-group header.
  */
 export function ToolGroupHeader({ group, onToggle }: { group: ToolGroupRow; onToggle?(): void }): React.ReactNode {
   const [hovered, setHovered] = React.useState(false)
-  const live = group.live !== undefined && group.endedAt === undefined
+  const live = group.runningSince !== undefined
   // 1 s tick while a call runs; elapsed derives from the wall clock.
   const [ref] = useAnimationFrame(live ? 1000 : null)
   const names = group.names.map(([name, count]) => (count > 1 ? `${name} ×${count}` : name)).join(' · ')
-  const end = group.endedAt ?? (live ? Date.now() : undefined)
-  const duration = end === undefined ? '' : ` · ${formatDuration(Math.max(0, end - group.startedAt))}`
-  const title = live && group.live?.title ? ` · ${group.live.title}` : ''
+  const runningMs = group.runningSince === undefined ? 0 : Math.max(0, Date.now() - group.runningSince)
+  const duration = ` · ${formatDuration(group.settledMs + runningMs)}`
+  const title = group.title === undefined ? '' : ` · ${group.title}`
+  const thinking = group.thinking === true && !live ? ` · ${t('thinking-label')}…` : ''
   return (
     <Box
       ref={ref}
       flexDirection="row"
-      gap={1}
       onClick={onToggle}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Text color={hovered ? 'accent' : 'inactive'}>{group.folded ? '▸' : '▾'}</Text>
-      <Text wrap="truncate-end" dimColor={!hovered}>{names + duration + title}</Text>
+      {/* A fixed column: a narrow row truncates the text, never this gap. */}
+      <Box flexShrink={0} width={2}>
+        <Text color={hovered ? 'accent' : 'inactive'}>{group.folded ? '▸' : '▾'}</Text>
+      </Box>
+      <Text wrap="truncate-end" dimColor={!hovered}>{names + duration + title + thinking}</Text>
     </Box>
   )
 }

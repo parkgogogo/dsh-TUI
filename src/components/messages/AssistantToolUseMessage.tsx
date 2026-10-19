@@ -665,7 +665,12 @@ function HeaderTitle({ name, title, isTerminal, folded, displayArgs, argsLanguag
     const after = trimmed.slice(at + filePath.length)
     return (
       <Box flexWrap="nowrap" {...headerTooltip}>
-        <Text bold color={nameColor} wrap="truncate-end">{before}</Text>
+        {/* Only the path gives way to a narrow row: the tool name before it
+            and the range after it stay whole (shrinking all three cut
+            `Write` to `Writ…`). */}
+        <Box flexShrink={0}>
+          <Text bold color={nameColor}>{before}</Text>
+        </Box>
         <Box
           onClick={(event: ClickEvent) => {
             event.stopImmediatePropagation()
@@ -675,7 +680,9 @@ function HeaderTitle({ name, title, isTerminal, folded, displayArgs, argsLanguag
           <Text underline wrap="truncate-end">{filePath}</Text>
         </Box>
         {after !== '' && (
-          <Text bold={false} color="text" wrap="truncate-end">{after}</Text>
+          <Box flexShrink={0}>
+            <Text bold={false} color="text">{after}</Text>
+          </Box>
         )}
       </Box>
     )
