@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Text } from '../../ui.js'
+import { Box, Text, useAnimationFrame } from '../../ui.js'
 import type { ChatRow, ToolGroupRow, ToolRow } from '../../adapter/ports/channel-view.js'
 import { formatDuration } from '../../terminal-utils/format.js'
 import { displayName } from '../messages/AssistantToolUseMessage.js'
@@ -39,8 +39,10 @@ export function toolGroupCode(tool: ToolRow): number {
  * Fold runs of ≥2 consecutive groupable tool calls in `out` (in place, on
  * shallow copies — rows may arrive frozen). Settled thinking rows between the
  * calls join the run; trailing ones stay outside it. The head row carries the
- * summary; every other member is added to `foldedMembers` unless it is still
- * running. A click on the summary (expandedRows) or Ctrl+O unfolds the run.
+ * summary; every other member is added to `foldedMembers`, running calls
+ * included — the summary shows the live call, so a new call bumps a count in
+ * place instead of drawing a card that folds away when it settles. A click on
+ * the summary (expandedRows) or Ctrl+O unfolds the run.
  */
 export function foldToolRuns(
   out: ChatRow[],
@@ -67,24 +69,25 @@ export function foldToolRuns(
     }
     const names = new Map<string, number>()
     let endedAt = 0
-    let live = false
+    let live: ToolRow | undefined
     for (const tool of tools) {
       const name = displayName(tool.name, (tool.resultView ?? tool.callView)?.displayKey).replace(/_/g, ' ')
       names.set(name, (names.get(name) ?? 0) + 1)
-      live = live || tool.status === 'running'
+      if (tool.status === 'running') live = tool
       endedAt = Math.max(endedAt, tool.startedAt + (tool.durationMs ?? 0))
     }
+    const liveTitle = live === undefined ? undefined : (live.resultView?.title ?? live.callView?.title)?.split('\n', 1)[0]
     const folded = !expanded && !expandedRows.has(out[i]!.id)
     const summary = {
       folded,
       names: [...names],
       startedAt: tools[0]!.startedAt,
-      ...(live ? {} : { endedAt }),
+      ...(live === undefined ? { endedAt } : { live: liveTitle === undefined ? {} : { title: liveTitle } }),
     }
     for (let k = i; k <= end; k++) {
       const row = out[k]!
       out[k] = { ...row, toolGroup: { ...summary, head: k === i } }
-      if (folded && k > i && !(row.kind === 'tool' && row.tool?.status === 'running')) foldedMembers.add(row.id)
+      if (folded && k > i) foldedMembers.add(row.id)
     }
     i = end
   }
@@ -94,16 +97,24 @@ export function foldToolRuns(
  * Summary line of a tool run (`row.toolGroup` on its head):
  *
  *   ▸ Bash ×5 · Read ×2 · 12s
+ *   ▸ Bash ×6 · Read ×2 · 14s · sleep 5      (a call still running)
  *
- * The duration appears once every call settled. Clicking the line toggles
- * the run, the same gesture as the job-group header.
+ * While a call runs the duration ticks from the run's start and the live
+ * command trails it (cut first when the row is narrow). Clicking the line
+ * toggles the run, the same gesture as the job-group header.
  */
 export function ToolGroupHeader({ group, onToggle }: { group: ToolGroupRow; onToggle?(): void }): React.ReactNode {
   const [hovered, setHovered] = React.useState(false)
+  const live = group.live !== undefined && group.endedAt === undefined
+  // 1 s tick while a call runs; elapsed derives from the wall clock.
+  const [ref] = useAnimationFrame(live ? 1000 : null)
   const names = group.names.map(([name, count]) => (count > 1 ? `${name} ×${count}` : name)).join(' · ')
-  const duration = group.endedAt === undefined ? '' : ` · ${formatDuration(Math.max(0, group.endedAt - group.startedAt))}`
+  const end = group.endedAt ?? (live ? Date.now() : undefined)
+  const duration = end === undefined ? '' : ` · ${formatDuration(Math.max(0, end - group.startedAt))}`
+  const title = live && group.live?.title ? ` · ${group.live.title}` : ''
   return (
     <Box
+      ref={ref}
       flexDirection="row"
       gap={1}
       onClick={onToggle}
@@ -111,7 +122,7 @@ export function ToolGroupHeader({ group, onToggle }: { group: ToolGroupRow; onTo
       onMouseLeave={() => setHovered(false)}
     >
       <Text color={hovered ? 'accent' : 'inactive'}>{group.folded ? '▸' : '▾'}</Text>
-      <Text wrap="truncate-end" dimColor={!hovered}>{names + duration}</Text>
+      <Text wrap="truncate-end" dimColor={!hovered}>{names + duration + title}</Text>
     </Box>
   )
 }

@@ -96,6 +96,26 @@ const NOOP_TOGGLE_STREAM_VIEW = (_rowId: number): void => {}
 
 /** A row that opens a turn on the rail and the pinned header: a user row,
  *  but not an Agent Teams peer message (never the human's prompt). */
+/** An assistant step that renders as a lone `●`: no text once the `⏵`
+ *  self-narration line is stripped, and no images. */
+function blankAssistant(row: ChatRow): boolean {
+  return row.kind === 'assistant' &&
+    stripNarration(row.text ?? '').trim() === '' &&
+    (row.images?.length ?? 0) === 0
+}
+
+/**
+ * Visible-rows cache bit of a row: 1 streaming, 0 settled. Compact tools
+ * (settings `dsh-tui.compactTools`) also hide a STREAMING blank assistant
+ * step — the bottom spinner already says the model is working, and the lone
+ * `●` would otherwise flash between two calls of a folded run — so its
+ * first text, landing in place, must flip the bit (2 → 1) to unhide it.
+ */
+function streamBit(row: ChatRow, compactTools: boolean): number {
+  if (row.streaming !== true) return 0
+  return compactTools && blankAssistant(row) ? 2 : 1
+}
+
 function isTurnRow(row: ChatRow): boolean {
   return row.kind === 'user' && row.label !== 'team-message'
 }
@@ -574,7 +594,7 @@ export function MessageList({
   if (streamBitsSame) {
     const bits = visibleCache!.streamBits
     for (let i = 0; i < rows.length; i++) {
-      if (bits[i] !== (rows[i]!.streaming === true ? 1 : 0)) { streamBitsSame = false; break }
+      if (bits[i] !== streamBit(rows[i]!, compactTools)) { streamBitsSame = false; break }
     }
   }
   // Job-group fingerprint: job statuses land IN PLACE (`row.job` is
@@ -622,11 +642,9 @@ export function MessageList({
     // thinking, `⏵ …` line, straight to a tool call — has non-empty raw
     // text but RENDERS as that same lone `●`. Test the stripped text, or
     // the raw-text check lets the dot through forever.
+    // Compact tools hide a still-streaming blank step too (see streamBit).
     const rendersEmptyAssistant = (row: ChatRow): boolean =>
-      row.kind === 'assistant' &&
-      row.streaming !== true &&
-      stripNarration(row.text ?? '').trim() === '' &&
-      (row.images?.length ?? 0) === 0
+      (row.streaming !== true || compactTools) && blankAssistant(row)
     let hasEmptyAssistant = false
     for (const row of sliced) {
       if (rendersEmptyAssistant(row)) {
@@ -769,7 +787,7 @@ export function MessageList({
       }
     }
     const streamBits = new Uint8Array(rows.length)
-    for (let i = 0; i < rows.length; i++) streamBits[i] = rows[i]!.streaming === true ? 1 : 0
+    for (let i = 0; i < rows.length; i++) streamBits[i] = streamBit(rows[i]!, compactTools)
     visibleRowsCacheRef.current = {
       rows,
       rowsLength: rows.length,
@@ -2039,9 +2057,9 @@ function TranscriptRow({
         ...(toolLiveOutputDropped === undefined ? {} : { liveOutputDropped: toolLiveOutputDropped }),
       }
       // A run head draws the summary line; its own card shows only while the
-      // run is unfolded or the call still runs. The head's block margin moves
-      // up to the summary, like a job group's.
-      const showCard = toolGroup === undefined || !toolGroup.folded || toolStatus === 'running'
+      // run is unfolded (a running call shows on the summary line). The
+      // head's block margin moves up to the summary, like a job group's.
+      const showCard = toolGroup === undefined || !toolGroup.folded
       return (
         <Box flexDirection="column" ref={ref} marginTop={toolGroup !== undefined && marginTopOnTurn ? 1 : 0}>
           {toolGroup !== undefined && <ToolGroupHeader group={toolGroup} onToggle={toggleJobGroup} />}

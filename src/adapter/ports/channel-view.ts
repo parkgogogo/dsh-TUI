@@ -415,7 +415,8 @@ export interface JobRow {
 export interface ToolGroupRow {
   /** First call of the run: renders the summary line. */
   head: boolean
-  /** Members hidden behind the summary (a running call stays shown). */
+  /** Members hidden behind the summary, running calls included: the
+   *  summary line itself carries the live call, so the run grows in place. */
   folded: boolean
   /** Display name → call count, in first-seen order. */
   names: ReadonlyArray<readonly [string, number]>
@@ -423,6 +424,8 @@ export interface ToolGroupRow {
   startedAt: number
   /** Latest call finish; absent while any call is still running. */
   endedAt?: number
+  /** Latest still-running call, shown on the summary line. */
+  live?: { title?: string }
 }
 
 export interface JobGroupRow {
