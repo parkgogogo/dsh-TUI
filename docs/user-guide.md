@@ -576,7 +576,7 @@ dsh-tui 自身区块在 0.1.7 写入当前 profile 的 `cordis.patch.yml`，旧�
 | splashFont | 开屏大字字体：按天轮换（默认，随本地日期换款）/ 加粗 / 方角实心 / 半立体 / 宽体 / 点阵灰度 / 镂空模板 / 细笔 / 方板。选某一款即固定那一款，选回「按天轮换」恢复。立即生效 |
 | whaleGirl | 女仆娘立绘（默认关）：DeepSeek 品牌下，设 `companion.skin=whale` 并开启本项；`deepy` 和 `whaleGirl` 皮肤会取代立绘。Claude 使用自己的图案，Codex 使用自己的真图或女仆娘字符画回退；这两个品牌的开屏图案不受宠物皮肤和女仆娘开关影响。优先 Kitty/Sixel 真图，不支持时回落字符画。见[优先级表](configuration.md) |
 | diffLayout | Edit/Write diff 布局：auto（≥110 列双栏）/ split / unified；双栏（auto 在 ≥110 列，或显式 split）折叠时仍一行一条，超宽行会被截断，卡片末尾给一行 `… 已折叠 N 字符（ctrl+o 展开）` 提示；展开（`Ctrl+O` 或点击卡片）后超宽行按各自栏宽换行，两栏仍逐行对齐（同一改动行左右同起点） |
-| thinkingFold | 思考块：preview（流式 2-3 行预览 + 落定折叠）/ full（展开到轮末） |
+| thinkingFold | 思考块：preview（流式 2-3 行预览 + 落定折叠）/ full（展开到轮末）/ status（只显示转圈与耗时，不显示思考文字；`Ctrl+O` 看全文） |
 | btw.contextBudget | `/btw` 追问携带的最近问答总字符预算（默认 24000，范围 1000-200000）；超出时从最旧的整组开始裁剪。立即生效 |
 | btw.contextTurns | `/btw` 追问显式携带的最近完成问答组数（默认 4，范围 1-8）；窗口外的问答不进入请求，线程与面板仍保留全文。立即生效 |
 | jobGroupFold | 连续的后台任务卡：auto（默认，≥2 张成组；整组落定且 ≥3 张时折叠成汇总行）/ always（≥2 张立即折叠，含在跑的任务）/ never（从不自动折叠，每张卡都留着）。组头一行汇总状态与合计时长，点组头或 Ctrl+O 展开 |
@@ -590,6 +590,7 @@ dsh-tui 自身区块在 0.1.7 写入当前 profile 的 `cordis.patch.yml`，旧�
 | scrollGutter | 转录边栏：timeline（轮次时间线，默认）/ scrollbar（比例滚动条）/ hidden。立即生效 |
 | pageMargin | 页边距：整屏相对终端四边向里缩。预设 none / slim / normal（默认）/ roomy，或自定义 `NxM`（细节见下）。立即生效 |
 | foldTerminalCommand | 折叠终端命令（默认关）：终端卡（Bash/PowerShell）多行命令折成首行 + 计数；`Ctrl+O` 或点击卡片展开 |
+| compactTools | 紧凑工具卡（默认关）：终端卡和读图片只剩标题一行（不显示输出，耗时在标题上计时，长命令截断成一行）；两次以上连续的读文件、搜索、终端调用折成一行摘要 `▸ Bash ×5 · Read ×2 · 12s`，正在运行的那条显示在摘要下面；报错、非零退出码、改文件和助手的文字照常单独显示；`Ctrl+O` 或点击展开 |
 | expandEditor | 全屏草稿编辑（默认开）：输入行尾 `⛶` 或 `Ctrl+Shift+E` 展开成整屏编辑器；`Ctrl+Enter` 发送、`Esc` 收起（草稿还在）；关掉后入口不显示 |
 | statusBar.* | 上表全部状态栏开关（compact/model/thinking/cwd/contextUsage/cache/tokens/cost/tps/gitBranch/sessionTitle/sessionId/mode/contextBar/activity/trajectory；statusBar.sessionId 是底栏显示开关，与 cordis 的启动 sessionId 无关） |
 

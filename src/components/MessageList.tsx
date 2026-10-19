@@ -16,6 +16,8 @@ import { liveOutputMaxLines, liveOutputRows } from './messages/liveOutputLines.j
 import { SubagentMessage } from './Chat/SubagentMessage.js'
 import { JobCard } from './Chat/JobCard.js'
 import { JobGroupHeader } from './Chat/JobGroupHeader.js'
+import { foldToolRuns, toolGroupCode, ToolGroupHeader } from './Chat/ToolGroup.js'
+import type { ToolGroupRow } from '../adapter/ports/channel-view.js'
 import { isMinimalUiMode } from '../minimalUiMode.js'
 import { noteFrameCause, noteListGeometry } from '../ink/geometry-trace.js'
 import { getTerminalFlushTick } from '../ink/flush-tick.js'
@@ -220,6 +222,7 @@ function signatureParts(
   thinkingFold: string,
   diffLayout: string,
   foldTerminalCommand: boolean,
+  compactTools: boolean,
   model: string,
   failureHintRowId: number | null | undefined,
   failureHint: string | undefined,
@@ -260,6 +263,12 @@ function signatureParts(
         // diffLayout changes the body's — without it, a /settings toggle
         // leaves already-mounted tool cards at their stale cached height.
         foldTerminalCommand,
+        // Compact cards drop their body; a folded run hides members and adds
+        // the summary line on its head.
+        compactTools,
+        row.toolGroup?.head === true,
+        row.toolGroup?.folded === true,
+        row.toolGroup !== undefined,
         tool?.status ?? '',
         tool?.resultText?.length ?? 0,
         tool?.resultFull?.length ?? 0,
@@ -375,6 +384,7 @@ export function MessageList({
   jobGroupFold = 'auto',
   toolBackground = 'none',
   foldTerminalCommand = false,
+  compactTools = false,
   turnUsageRow = false,
   smoothStreaming = false,
   activityFrames,
@@ -414,7 +424,7 @@ export function MessageList({
   /** Edit/Write diff presentation preference (forwarded to tool cards). */
   diffLayout?: 'auto' | 'split' | 'unified'
   /** Thinking-block display mode from channel (`preview`/`full`). */
-  thinkingFold?: 'preview' | 'full'
+  thinkingFold?: 'preview' | 'full' | 'status'
   /** Grouping/folding of consecutive job-card runs (settings
    *  `dsh-tui.jobGroupFold`): `auto` folds a settled run of ≥3 into its
    *  summary header, `always` folds any run of ≥2, `never` leaves runs open
@@ -424,6 +434,8 @@ export function MessageList({
   toolBackground?: ToolBackground
   /** Terminal-card header folding from the live channel settings. */
   foldTerminalCommand?: boolean
+  /** Compact tool cards and folded tool runs from the live channel settings. */
+  compactTools?: boolean
   /** Turn-usage ledger row from the live channel settings (default off):
    *  off filters the rows out of the visible window BEFORE virtualization —
    *  the ledger itself keeps feeding `turnUsage`, /tokens, /status and the
@@ -571,9 +583,14 @@ export function MessageList({
   // length key above, yet both decide whether a consecutive-job run folds,
   // and a folded run REMOVES its members from the visible window. One
   // allocation-free pass over the row list (only job rows feed the hash).
-  let jobsSig = (expanded ? 1 : 0) * 7 + (jobGroupFold === 'always' ? 1 : jobGroupFold === 'never' ? 2 : 3)
+  let jobsSig = (expanded ? 1 : 0) * 7 + (jobGroupFold === 'always' ? 1 : jobGroupFold === 'never' ? 2 : 3) + (compactTools ? 11 : 0)
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]!
+    // Tool statuses land in place too, and decide how a compact run folds.
+    if (compactTools && row.kind === 'tool' && row.tool !== undefined) {
+      jobsSig = (jobsSig * 31 + row.id + toolGroupCode(row.tool) + (expandedRows.has(row.id) ? 7 : 0)) | 0
+      continue
+    }
     if (row.kind !== 'job' || row.job === undefined) continue
     jobsSig = (jobsSig * 33 + row.id + jobStatusCode(row.job.status) + (expandedRows.has(row.id) ? 7 : 0)) | 0
   }
@@ -734,6 +751,8 @@ export function MessageList({
       }
       i = end
     }
+    // --- consecutive tool-call runs (settings `dsh-tui.compactTools`) --------
+    if (compactTools) foldToolRuns(out, expanded, expandedRows, foldedMembers)
     const visibleOut = foldedMembers.size === 0 ? out : out.filter(row => !foldedMembers.has(row.id))
     // Every rendered block gets a 1-row top margin except the first. Pre-pass
     // over the FULL list so a windowed row keeps the exact spacing it would
@@ -743,7 +762,8 @@ export function MessageList({
     {
       let prev: ChatRow['kind'] | undefined
       for (const row of visibleOut) {
-        const member = row.jobGroup !== undefined && !row.jobGroup.head
+        const member = (row.jobGroup !== undefined && !row.jobGroup.head) ||
+          (row.toolGroup !== undefined && !row.toolGroup.head)
         margins.set(row.id, prev !== undefined && !member)
         prev = row.kind
       }
@@ -905,6 +925,7 @@ export function MessageList({
         thinkingFold,
         diffLayout,
         foldTerminalCommand,
+        compactTools,
         model,
         failureHintRowId,
         failureHint,
@@ -1582,6 +1603,7 @@ export function MessageList({
               thinkingFold={thinkingFold}
               toolBackground={toolBackground}
               foldTerminalCommand={foldTerminalCommand}
+              compactTools={compactTools}
               smoothStreaming={smoothStreaming}
               fresh={row.fresh === true}
               revealVersion={revealVersion}
@@ -1608,6 +1630,7 @@ export function MessageList({
               subagent={subagent}
               job={job}
               jobGroup={jobGroup}
+              toolGroup={row.toolGroup?.head === true ? row.toolGroup : undefined}
               onToggleRow={onToggleRow}
               onToggleStreamView={onToggleStreamView}
               streamViewToggled={streamViewToggledRows.has(row.id)}
@@ -1672,10 +1695,12 @@ type MemoRowProps = {
   fresh: boolean
   /** Version tick for active tool reveal; 0 keeps settled rows memoized. */
   revealVersion: number
-  thinkingFold: 'preview' | 'full'
+  thinkingFold: 'preview' | 'full' | 'status'
   toolBackground: ToolBackground
   /** Terminal-card header folding (forwarded to tool cards). */
   foldTerminalCommand: boolean
+  /** Compact tool cards (forwarded to tool cards; gates tool images). */
+  compactTools: boolean
   /** Working-activity preset name; drives the subagent card's running glyph. */
   activityFrames: string | undefined
   background: 'messageActionsBackground' | undefined
@@ -1716,6 +1741,8 @@ type MemoRowProps = {
   job: JobRow | undefined
   /** Group decoration for a run of consecutive job cards (see JobGroupRow). */
   jobGroup: JobGroupRow | undefined
+  /** Fold summary of a tool run, on its head row only (see ToolGroupRow). */
+  toolGroup: ToolGroupRow | undefined
   onToggleRow: (rowId: number) => void
   /** 流式 reasoning 行在三行预览/全文间切换；落定行用 onToggleRow。 */
   onToggleStreamView: (rowId: number) => void
@@ -1776,6 +1803,7 @@ function TranscriptRow({
   thinkingFold,
   toolBackground,
   foldTerminalCommand,
+  compactTools,
   activityFrames,
   background,
   toolCallId,
@@ -1799,6 +1827,7 @@ function TranscriptRow({
   subagent,
   job,
   jobGroup,
+  toolGroup,
   onToggleRow,
   onToggleStreamView,
   streamViewToggled,
@@ -1958,6 +1987,9 @@ function TranscriptRow({
       const turnOpen = streaming || thinkingOpen
       const streamPreview = turnOpen && !expanded && !isExpanded &&
         (streamViewToggled ? thinkingFold === 'full' : thinkingFold === 'preview')
+      // Status only: the header line is the whole row until Ctrl+O or a
+      // per-row expansion asks for the text.
+      const statusOnly = thinkingFold === 'status' && !expanded && !isExpanded
       return (
         <Box flexDirection="column" ref={ref}>
           <ThinkingLeafRow
@@ -1968,7 +2000,8 @@ function TranscriptRow({
             preview={streamPreview}
             // Settled rows keep the fold-on-settle default and expand via
             // expandedRows/Ctrl+O; a current-turn row is preview or full.
-            verbose={isExpanded || expanded || (turnOpen && !streamPreview)}
+            verbose={isExpanded || expanded || (turnOpen && !streamPreview && !statusOnly)}
+            hint={!statusOnly}
             durationMs={durationMs}
             reasoningTokens={reasoningTokens}
             isSelected={isSelected}
@@ -2005,12 +2038,18 @@ function TranscriptRow({
         ...(toolLiveOutput === undefined ? {} : { liveOutput: toolLiveOutput }),
         ...(toolLiveOutputDropped === undefined ? {} : { liveOutputDropped: toolLiveOutputDropped }),
       }
+      // A run head draws the summary line; its own card shows only while the
+      // run is unfolded or the call still runs. The head's block margin moves
+      // up to the summary, like a job group's.
+      const showCard = toolGroup === undefined || !toolGroup.folded || toolStatus === 'running'
       return (
-        <Box flexDirection="column" ref={ref}>
-          <ToolLeafRow
+        <Box flexDirection="column" ref={ref} marginTop={toolGroup !== undefined && marginTopOnTurn ? 1 : 0}>
+          {toolGroup !== undefined && <ToolGroupHeader group={toolGroup} onToggle={toggleJobGroup} />}
+          {showCard && <ToolLeafRow
             tool={tool}
-            marginTopOnTurn={marginTopOnTurn}
-            verbose={isExpanded || expanded}
+            marginTopOnTurn={toolGroup === undefined && marginTopOnTurn}
+            // The head's row toggle unfolds the run, not the card body.
+            verbose={toolGroup === undefined ? isExpanded || expanded : expanded}
             isSelected={isSelected}
             isExpanded={isExpanded}
             footnote={toolFootnote}
@@ -2020,14 +2059,17 @@ function TranscriptRow({
             fresh={fresh}
             revealVersion={revealVersion}
             foldTerminalCommand={foldTerminalCommand}
+            compactTools={compactTools}
             onClick={foldOnClick}
             onOpenFile={onOpenFile}
-            images={images}
+            // Compact: a tool-read image shows once the card is expanded (a
+            // collapsed thumbnail is a 12-row block, blank without graphics).
+            images={compactTools && !(isExpanded || expanded) ? undefined : images}
             onPreviewImage={onPreviewImage}
             suppressImageGraphics={suppressImageGraphics}
             sourceFolded={toolSourceFolded}
             fullscreen={fullscreen}
-          />
+          />}
         </Box>
       )
     }

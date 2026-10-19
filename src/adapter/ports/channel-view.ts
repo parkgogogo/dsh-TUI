@@ -133,6 +133,11 @@ export interface ChatRow {
    *  (rows may arrive frozen from the session projection), never by the
    *  projection and never on the shared row objects. */
   jobGroup?: JobGroupRow
+  /** Present on read / search / terminal `tool` rows (and the settled
+   *  thinking rows between them) that share a folded run (settings
+   *  `dsh-tui.compactTools`). Render-derived, like `jobGroup`: written only
+   *  onto shallow copies in the transcript's row pre-pass. */
+  toolGroup?: ToolGroupRow
   /** Event wall-clock time (transcript-mode metadata, assistant rows). */
   time?: number
   /** Present on `reasoning` rows once settled: thinking wall-clock duration. */
@@ -406,6 +411,20 @@ export interface JobRow {
  * and the height signature can read it, and it is recomputed from scratch
  * whenever the visible-row window rebuilds.
  */
+/** Fold summary of a run of consecutive tool calls (see ChatRow.toolGroup). */
+export interface ToolGroupRow {
+  /** First call of the run: renders the summary line. */
+  head: boolean
+  /** Members hidden behind the summary (a running call stays shown). */
+  folded: boolean
+  /** Display name → call count, in first-seen order. */
+  names: ReadonlyArray<readonly [string, number]>
+  /** First call start. */
+  startedAt: number
+  /** Latest call finish; absent while any call is still running. */
+  endedAt?: number
+}
+
 export interface JobGroupRow {
   /** Group header row: the only member rendering the title/fold line. */
   head: boolean

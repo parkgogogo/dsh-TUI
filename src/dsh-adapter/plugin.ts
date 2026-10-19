@@ -1003,6 +1003,7 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
     scrollGutter: config.scrollGutter,
     pageMargin: config.pageMargin,
     foldTerminalCommand: config.foldTerminalCommand,
+    compactTools: config.compactTools,
     turnUsageRow: config.turnUsageRow,
     promptSessionLabel: config.promptSessionLabel,
     expandEditor: config.expandEditor,
@@ -1158,7 +1159,7 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
       tuiSettingsNs,
       Schema.object({
         diffLayout: Schema.union(['auto', 'split', 'unified']).default('auto'),
-        thinkingFold: Schema.union(['preview', 'full']).default('preview'),
+        thinkingFold: Schema.union(['preview', 'full', 'status']).default('preview'),
         jobGroupFold: Schema.union(['auto', 'always', 'never']).default('auto'),
         toolBackground: Schema.union(['none', 'subtle', 'strong']).default('none'),
         scrollGutter: Schema.union(['timeline', 'scrollbar', 'hidden']).default('timeline'),
@@ -1176,6 +1177,8 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
         // `?? config.foldTerminalCommand ?? false` already supplies the
         // default and keeps cordis.yml decisive.
         foldTerminalCommand: Schema.boolean(),
+        // Same no-default rule as foldTerminalCommand.
+        compactTools: Schema.boolean(),
         // Same no-default rule as foldTerminalCommand: applyDisplay resolves
         // `?? config.turnUsageRow ?? false` so cordis.yml stays decisive.
         turnUsageRow: Schema.boolean(),
@@ -1313,13 +1316,14 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
       fullscreen?: boolean
       launchpad?: boolean
       terminalImages?: boolean
-      thinkingFold?: 'preview' | 'full'
+      thinkingFold?: 'preview' | 'full' | 'status'
       jobGroupFold?: 'auto' | 'always' | 'never'
       effortDefault?: string
       toolBackground?: ToolBackground
       scrollGutter?: ScrollGutterMode
       pageMargin?: PageMarginSetting
       foldTerminalCommand?: boolean
+      compactTools?: boolean
       turnUsageRow?: boolean
       promptSessionLabel?: boolean
       expandEditor?: boolean
@@ -1428,6 +1432,7 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
       channel.setPageMargin(pageMargin)
       applyPageMargin(pageMargin)
       channel.setFoldTerminalCommand(value.foldTerminalCommand ?? config.foldTerminalCommand ?? false)
+      channel.setCompactTools(value.compactTools ?? config.compactTools ?? false)
       channel.setTurnUsageRow(value.turnUsageRow ?? config.turnUsageRow ?? false)
       channel.setPromptSessionLabel(value.promptSessionLabel ?? config.promptSessionLabel ?? false)
       channel.setExpandEditor(value.expandEditor ?? config.expandEditor ?? true)
@@ -1662,6 +1667,13 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
             // Unset in settings.yaml: show the effective resolution (cordis.yml
             // → off) instead of a blank — same rule as `fullscreen`'s field.
             return String(typeof value === 'boolean' ? value : config.foldTerminalCommand === true)
+          },
+        },
+        {
+          ...settingField('compactTools'),
+          format(value: unknown): string {
+            // Same effective-resolution rule as foldTerminalCommand's field.
+            return String(typeof value === 'boolean' ? value : config.compactTools === true)
           },
         },
         {

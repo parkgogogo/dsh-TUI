@@ -66,6 +66,14 @@ type Props = {
    */
   foldTerminalCommand?: boolean
   /**
+   * Compact tool cards (settings `dsh-tui.compactTools`): a collapsed
+   * terminal card is its header line alone — no live or settled output, the
+   * elapsed time ticks on the header, a long command truncates to one row —
+   * and an image read drops its model-facing text. Errors and non-zero exits
+   * still show; verbose/expanded cards render as usual.
+   */
+  compactTools?: boolean
+  /**
    * Smooth streaming reveal (settings `dsh-tui.smoothStreaming`): the card
    * BODY (diff hunks / write content — model-authored prose, not tool
    * output) paints through an even ~30fps line reveal when it first appears,
@@ -110,7 +118,7 @@ const TOOL_NAME_KEYS: Record<string, I18nKey> = {
   web_search: 'tool-name-web_search',
 }
 
-function displayName(name: string, displayKey?: string): string {
+export function displayName(name: string, displayKey?: string): string {
   // A backend that names its tools its own way (Claude `Read`, `Bash`)
   // supplies the key with the card view; the raw name is the fallback.
   if (displayKey !== undefined) return tOr(displayKey, name)
@@ -477,7 +485,7 @@ function clipHeaderArgs(args: string): string {
 
 /** Terminal-card header folding shape: the line actually rendered, the source
  *  lines the multi-line fold hid, and the characters the long-line clip hid. */
-type FoldedTitle = { first: string; hiddenLines: number; hiddenChars: number }
+type FoldedTitle = { first: string; hiddenLines: number; hiddenChars: number; truncate: boolean }
 
 /** Fold a multi-line terminal command title to its first SOURCE line.
  *  Counts '\n' separators in place instead of materializing a line array —
@@ -498,7 +506,7 @@ type FoldedTitle = { first: string; hiddenLines: number; hiddenChars: number }
  *
  *  Single short titles return undefined: nothing to fold, rendering stays
  *  byte-identical to the unfolded card (and the header stays tooltip-silent). */
-function foldTerminalTitle(title: string, foldLines: boolean): FoldedTitle | undefined {
+function foldTerminalTitle(title: string, foldLines: boolean, oneLine = false): FoldedTitle | undefined {
   const firstEnd = title.indexOf('\n')
   let hiddenLines = 0
   let body = title
@@ -510,8 +518,10 @@ function foldTerminalTitle(title: string, foldLines: boolean): FoldedTitle | und
     body = title.slice(0, title.charCodeAt(firstEnd - 1) === 13 ? firstEnd - 1 : firstEnd)
   }
   const clipped = foldLongLines(body)
-  if (hiddenLines <= 0 && clipped.hiddenChars === 0) return undefined
-  return { first: clipped.text, hiddenLines: Math.max(0, hiddenLines), hiddenChars: clipped.hiddenChars }
+  // One-line headers (compactTools) always take the folded form: its first
+  // line truncates to the row instead of wrapping.
+  if (!oneLine && hiddenLines <= 0 && clipped.hiddenChars === 0) return undefined
+  return { first: clipped.text, hiddenLines: Math.max(0, hiddenLines), hiddenChars: clipped.hiddenChars, truncate: oneLine }
 }
 
 /** Addendum line appended to the header hover tooltip when the header hides
@@ -626,7 +636,7 @@ function HeaderTitle({ name, title, isTerminal, folded, displayArgs, argsLanguag
             <Text>({title})</Text>
           ) : (
             <>
-              <Text>({folded.first})</Text>
+              <Text wrap={folded.truncate ? 'truncate-end' : undefined}>({folded.first})</Text>
               {folded.hiddenLines > 0 && (
                 <Text dimColor>{` ${t('lines-folded-expand', { n: folded.hiddenLines, key: primaryComboString('transcript') })}`}</Text>
               )}
@@ -701,6 +711,7 @@ export function AssistantToolUseMessage({
   toolBackground = 'none',
   onOpenFile,
   foldTerminalCommand = false,
+  compactTools = false,
   smoothReveal = false,
   fresh = false,
   revealVersion,
@@ -749,9 +760,9 @@ export function AssistantToolUseMessage({
   const lang = getLang()
   const foldedHeader = React.useMemo(
     () => headerIsTerminal && !verbose && headerTitle !== undefined
-      ? foldTerminalTitle(headerTitle, foldTerminalCommand)
+      ? foldTerminalTitle(headerTitle, foldTerminalCommand, compactTools)
       : undefined,
-    [headerIsTerminal, foldTerminalCommand, verbose, headerTitle, lang],
+    [headerIsTerminal, foldTerminalCommand, compactTools, verbose, headerTitle, lang],
   )
 
   // Live elapsed clock while the call runs: the
@@ -795,7 +806,8 @@ export function AssistantToolUseMessage({
   // sanitized and cut to the body width in cells (liveOutputLines.ts).
   // Memoized on the tail itself, so the 1 s elapsed tick re-renders without
   // rescanning; only a new chunk (a new string) recomputes.
-  const liveText = isRunning && !isError && sendMessage === undefined && !useSplitDiff ? tool.liveOutput ?? '' : ''
+  const compactCard = compactTools && !verbose && (headerIsTerminal || tool.name === 'read_image')
+  const liveText = !compactCard && isRunning && !isError && sendMessage === undefined && !useSplitDiff ? tool.liveOutput ?? '' : ''
   const liveDropped = tool.liveOutputDropped ?? 0
   const liveMaxLines = liveOutputMaxLines(verbose, fullscreen)
   const liveWidth = Math.max(1, columns - 4)
@@ -840,6 +852,8 @@ export function AssistantToolUseMessage({
       body = [dim(t('tool-running-elapsed', { duration: formatDuration(Math.max(0, Date.now() - (tool.startedAt ?? Date.now()))) }))]
     }
   }
+  // Compact: the header line is the whole card (errors keep their body).
+  if (compactCard && !isError) body = []
   const cap = view?.card === 'diff' ? DIFF_BODY_MAX_LINES : TEXT_BODY_MAX_LINES
   // 展开态（点击/verbose）的 SendMessage 卡不截断——raw 层就是「全量」。
   const bodyUncapped = verbose || sendMessageRawOpen
@@ -965,8 +979,9 @@ export function AssistantToolUseMessage({
             toolName={tool.name}
           />
           <HeaderTitle name={name} title={headerTitle} isTerminal={headerIsTerminal} folded={foldedHeader} displayArgs={displayArgs} argsLanguage={argsLanguage} nameColor={toolNameColor(tool.name, view?.category ?? tool.callView?.category)} filePath={filePath} onOpenFile={onOpenFile} metaTooltip={() => toolCardMetaTooltip(tool, isRunning, isError)} headerTextBudget={headerTextBudget} />
-          {!isRunning && (
-            <Box flexWrap="nowrap">
+          {(!isRunning || compactCard) && (
+            // flexShrink 0: a long title truncates; the chip never wraps to a row of its own.
+            <Box flexShrink={0} flexWrap="nowrap">
               <Text dimColor={!hovered}>{elapsedText}</Text>
             </Box>
           )}

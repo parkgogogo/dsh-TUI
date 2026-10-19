@@ -232,7 +232,7 @@ export interface ChannelUi {
   readonly diffLayout: 'auto' | 'split' | 'unified'
   /** Thinking-block display (`preview` = 2-3 line live stream + fold per
    *  step; `full` = expanded until turn end). */
-  readonly thinkingFold: 'preview' | 'full'
+  readonly thinkingFold: 'preview' | 'full' | 'status'
   /** Grouping/folding of runs of consecutive background-job cards (settings
    *  `dsh-tui.jobGroupFold`): `auto` folds a settled run of 3+ into its
    *  summary line, `always` folds any run of 2+, `never` never folds on its
@@ -253,6 +253,10 @@ export interface ChannelUi {
   /** Terminal-card header folding (settings `dsh-tui.foldTerminalCommand`):
    *  collapse a multi-line command title to its first line + count hint. */
   readonly foldTerminalCommand: boolean
+  /** Compact tool cards (settings `dsh-tui.compactTools`): terminal cards and
+   *  image reads collapse to their header line, and runs of consecutive
+   *  read / search / terminal calls fold into one summary line. */
+  readonly compactTools: boolean
   /** Turn-usage ledger row in the transcript (settings `dsh-tui.turnUsageRow`;
    *  off by default): the quiet right-aligned line that closes each turn.
    *  Display only: the ledger itself is always collected for `turnUsage`,
@@ -865,12 +869,13 @@ export interface ChannelUi {
    */
   trajectoryBackendLabel(): string
   setDiffLayout(layout: 'auto' | 'split' | 'unified'): void
-  setThinkingFold(mode: 'preview' | 'full'): void
+  setThinkingFold(mode: 'preview' | 'full' | 'status'): void
   setJobGroupFold(mode: JobGroupFoldMode): void
   setToolBackground(background: ToolBackground): void
   setScrollGutter(mode: ScrollGutterMode): void
   setPageMargin(setting: PageMarginSetting): void
   setFoldTerminalCommand(enabled: boolean): void
+  setCompactTools(enabled: boolean): void
   setTurnUsageRow(enabled: boolean): void
   setPromptSessionLabel(enabled: boolean): void
   setExpandEditor(enabled: boolean): void

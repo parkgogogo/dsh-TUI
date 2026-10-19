@@ -54,6 +54,14 @@ export const SETTING_DEFINITIONS = {
       { value: 'full', label: 'Full box', descriptions: { zh: '全框（封闭）' } },
     ],
   },
+  'compactTools': {
+    label: 'Compact tool cards',
+    descriptions: { zh: '紧凑工具卡' },
+    group: 'conversation',
+    hint: 'Terminal cards (Bash/PowerShell) and image reads collapse to their header line: no live or settled output, the elapsed time ticks on the header. Two or more consecutive read, search and terminal calls fold into one summary line (`▸ Bash ×5 · Read ×2 · 12s`); the call still running shows under it. Errors, non-zero exits, edits and assistant text stay as their own cards. Ctrl+O or a click expands.',
+    hintDescriptions: { zh: '终端卡（Bash/PowerShell）和读图片只剩标题一行：不显示实时或最终输出，耗时在标题上计时。两次以上连续的读文件、搜索、终端调用折成一行摘要（`▸ Bash ×5 · Read ×2 · 12s`），正在运行的那条显示在摘要下面。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。' },
+    kind: 'boolean',
+  },
   'companion.skin': {
     label: 'Companion skin',
     descriptions: { zh: '宠物皮肤' },
@@ -493,12 +501,13 @@ export const SETTING_DEFINITIONS = {
     label: 'Thinking display',
     descriptions: { zh: '思考块展示' },
     group: 'conversation',
-    hint: 'Preview shows 2-3 live lines; Full stays expanded until turn end. Click a streaming block to switch between preview and full.',
-    hintDescriptions: { zh: '预览模式显示 2-3 行动态思考；展开模式保持至轮末。点击流式思考块可在预览与全文间切换。' },
+    hint: 'Preview shows 2-3 live lines; Full stays expanded until turn end; Status shows only the spinner and duration, never the text. Click a streaming block to switch between preview and full. Ctrl+O always shows the full text.',
+    hintDescriptions: { zh: '预览模式显示 2-3 行动态思考；展开模式保持至轮末；仅状态只显示转圈与耗时，不显示思考文字。点击流式思考块可在预览与全文间切换。Ctrl+O 始终显示全文。' },
     kind: 'select',
     options: [
       { value: 'preview', label: 'Preview (2-3 lines)', descriptions: { zh: '预览（2-3 行）' } },
       { value: 'full', label: 'Full until turn end', descriptions: { zh: '展开至轮末' } },
+      { value: 'status', label: 'Status only', descriptions: { zh: '仅状态' } },
     ],
   },
   'toolBackground': {

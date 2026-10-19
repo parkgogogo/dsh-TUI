@@ -77,6 +77,7 @@ function makeFakeChannel() {
     toolBackground: 'none',
     scrollGutter: 'timeline',
     foldTerminalCommand: false,
+    compactTools: false,
     promptSessionLabel: false,
     expandEditor: true,
     statusBar: {},

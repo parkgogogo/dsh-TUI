@@ -91,12 +91,13 @@ export interface ChannelLaunchOptions {
    *  declares no retryPolicy. Absent means enabled (the Config schema's
    *  default); false opts out without touching settings. */
   upstreamRetry?: boolean
-  thinkingFold?: 'preview' | 'full'
+  thinkingFold?: 'preview' | 'full' | 'status'
   jobGroupFold?: JobGroupFoldMode
   toolBackground?: ToolBackground
   scrollGutter?: ScrollGutterMode
   pageMargin?: PageMarginSetting
   foldTerminalCommand?: boolean
+  compactTools?: boolean
   turnUsageRow?: boolean
   promptSessionLabel?: boolean
   expandEditor?: boolean
@@ -196,7 +197,7 @@ export function createInitialChannelView(
   'activityFrames' | 'configuredProvider' | 'configuredModel' |
   'configuredPreset' | 'configuredActivityFrames' | 'configuredLang' | 'diffLayout' |
   'thinkingFold' | 'jobGroupFold' | 'toolBackground' | 'scrollGutter' | 'pageMargin' |
-  'foldTerminalCommand' | 'turnUsageRow' | 'promptSessionLabel' | 'expandEditor' | 'smoothStreaming' |
+  'foldTerminalCommand' | 'compactTools' | 'turnUsageRow' | 'promptSessionLabel' | 'expandEditor' | 'smoothStreaming' |
   'statusBar' | 'whale' | 'whaleIdle' | 'splashFont' | 'brand' | 'minimalUi' | 'activityEnabled' | 'contextBarEnabled' |
   'statusBar' | 'whale' | 'whaleIdle' | 'whaleGirl' | 'minimalUi' | 'activityEnabled' | 'contextBarEnabled' |
   'agentPreset' | 'goal' | 'todos' | 'loadedContext' | 'pending' | 'commandList' |
@@ -218,6 +219,7 @@ export function createInitialChannelView(
     jobGroupFold: normalizeJobGroupFold(options.jobGroupFold),
     toolBackground: normalizeToolBackground(options.toolBackground), scrollGutter: normalizeScrollGutter(options.scrollGutter),
     pageMargin: normalizePageMargin(options.pageMargin), foldTerminalCommand: options.foldTerminalCommand === true,
+    compactTools: options.compactTools === true,
     turnUsageRow: options.turnUsageRow === true,
     promptSessionLabel: options.promptSessionLabel === true, expandEditor: options.expandEditor !== false,
     smoothStreaming: options.smoothStreaming !== false, statusBar: normalizeStatusBar(options.statusBar),

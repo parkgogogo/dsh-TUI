@@ -103,6 +103,7 @@ export function ThinkingLeafRow({
   streaming = false,
   preview = false,
   verbose,
+  hint,
   durationMs,
   reasoningTokens,
   isSelected = false,
@@ -115,6 +116,8 @@ export function ThinkingLeafRow({
   streaming?: boolean
   preview?: boolean
   verbose: boolean
+  /** Settled header carries the ctrl+o expand hint (default on). */
+  hint?: boolean
   durationMs?: number
   /** Thinking reported only as a count (no body) — the one-line header. */
   reasoningTokens?: number
@@ -129,6 +132,7 @@ export function ThinkingLeafRow({
       streaming={streaming}
       preview={preview}
       verbose={verbose}
+      hint={hint}
       durationMs={durationMs}
       reasoningTokens={reasoningTokens}
       isSelected={isSelected}
@@ -151,6 +155,7 @@ export function ToolLeafRow({
   fresh,
   revealVersion,
   foldTerminalCommand,
+  compactTools,
   onClick,
   onOpenFile,
   images,
@@ -171,6 +176,7 @@ export function ToolLeafRow({
   fresh?: boolean
   revealVersion?: number
   foldTerminalCommand?: boolean
+  compactTools?: boolean
   onClick?(event: ClickEvent): void
   onOpenFile?: (path: string) => void
   images?: readonly TranscriptImage[]
@@ -196,6 +202,7 @@ export function ToolLeafRow({
         fresh={fresh}
         revealVersion={revealVersion}
         foldTerminalCommand={foldTerminalCommand}
+        compactTools={compactTools}
         onClick={onClick}
         onOpenFile={onOpenFile}
         sourceFolded={sourceFolded}

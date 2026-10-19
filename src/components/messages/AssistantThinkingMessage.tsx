@@ -42,6 +42,9 @@ type Props = {
    *  the model's latest reasoning lines instead of the full block —
    *  kimicode-style constant height; the block never resizes mid-stream. */
   preview?: boolean
+  /** Settled header carries the ctrl+o expand hint (thinkingFold=status
+   *  drops it: the row is a status line, Ctrl+O still expands). */
+  hint?: boolean
   /** Thinking wall-clock duration once the reasoning block settled (ms). */
   durationMs?: number
   /** Estimated thinking tokens when the backend reports thinking only as a
@@ -71,6 +74,7 @@ export function AssistantThinkingMessage({
   verbose,
   streaming = false,
   preview = false,
+  hint = true,
   durationMs,
   reasoningTokens,
   isSelected = false,
@@ -110,9 +114,9 @@ export function AssistantThinkingMessage({
 
   // Kimi Code style blue pulse: the streaming glyph breathes along the
   // header's brand→ice ladder, one sine period per ~7 frames (≈0.56s) —
-  // lively without strobing. The minimal UI drops the color (plain glyph);
+  // lively without strobing. The minimal UI paints the theme accent instead;
   // settled always keeps the plain dim anchor.
-  const label = `${t('thinking-label')}${duration}${streaming ? '…' : ` ${t('hint-expand-ctrl-o', { key: primaryComboString('transcript') })}`}`
+  const label = `${t('thinking-label')}${duration}${streaming ? '…' : hint ? ` ${t('hint-expand-ctrl-o', { key: primaryComboString('transcript') })}` : ''}`
   const minimalUi = isMinimalUiMode()
   const pulse = (Math.sin(frame * 0.9) + 1) / 2
   const pulseColor = interpolateColor(BRAND, ICE, pulse)
@@ -126,7 +130,7 @@ export function AssistantThinkingMessage({
   const header =
     streaming ? (
       <Box flexDirection="row">
-        <Text>{minimalUi ? frameText : chalk.rgb(pulseColor.r, pulseColor.g, pulseColor.b).bold(frameText)}</Text>
+        <Text color={minimalUi ? 'accent' : undefined}>{minimalUi ? frameText : chalk.rgb(pulseColor.r, pulseColor.g, pulseColor.b).bold(frameText)}</Text>
         {/* 流式行同样可点击折叠（hover 提亮标签给出指示，与落定态一致） */}
         <Text dimColor={!hovered} color={hovered ? 'text' : undefined} italic>{` ${label}`}</Text>
       </Box>
@@ -262,7 +266,7 @@ function ThinkingTokensHeader({
     >
       {streaming ? (
         <>
-          <Text>{minimalUi ? frameText : chalk.rgb(pulseColor.r, pulseColor.g, pulseColor.b).bold(frameText)}</Text>
+          <Text color={minimalUi ? 'accent' : undefined}>{minimalUi ? frameText : chalk.rgb(pulseColor.r, pulseColor.g, pulseColor.b).bold(frameText)}</Text>
           <Text dimColor italic>{` ${t('thinking-tokens-live', { n })}`}</Text>
         </>
       ) : (

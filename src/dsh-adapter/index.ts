@@ -142,7 +142,7 @@ export interface Config {
   /** Thinking-block display: `preview` (default) streams a 2-3 line live
    *  preview and folds each step when it settles; `full` keeps thinking
    *  expanded until the whole turn ends. Editable live from `/settings`. */
-  thinkingFold?: 'preview' | 'full'
+  thinkingFold?: 'preview' | 'full' | 'status'
   /** Grouping/folding of consecutive background-job cards: `auto` (default)
    *  groups any run of ≥2 adjacent job cards and folds a run of 3+ into its
    *  summary line once every member settled; `always` folds any run of 2+
@@ -166,6 +166,10 @@ export interface Config {
    *  `+N lines` hint; Ctrl+O / clicking the card expands it. Default off —
    *  the full title keeps rendering. */
   foldTerminalCommand?: boolean
+  /** Compact tool cards (settings `dsh-tui.compactTools`): one-line terminal
+   *  and image-read cards, consecutive read / search / terminal calls folded
+   *  into one summary line. Default off. */
+  compactTools?: boolean
   /** Turn-usage ledger row (settings `dsh-tui.turnUsageRow`): the quiet
    *  right-aligned line that closes each turn in the transcript (tokens
    *  in/out, cache split, span, retries). Off by default; the ledger data
@@ -346,7 +350,7 @@ export const Config: Schema<Config, RuntimeConfig<Config>> = editableConfig<Conf
   lang: Schema.string().required(false),
   preset: Schema.string().required(false),
   diffLayout: Schema.union(['auto', 'split', 'unified']).default('auto'),
-  thinkingFold: Schema.union(['preview', 'full']).default('preview'),
+  thinkingFold: Schema.union(['preview', 'full', 'status']).default('preview'),
   jobGroupFold: Schema.union(['auto', 'always', 'never']).default('auto'),
   toolBackground: Schema.union(['none', 'subtle', 'strong']).default('none'),
   scrollGutter: Schema.union(['timeline', 'scrollbar', 'hidden']).default('timeline'),
@@ -358,6 +362,7 @@ export const Config: Schema<Config, RuntimeConfig<Config>> = editableConfig<Conf
     value => normalizePageMargin(value),
   ),
   foldTerminalCommand: Schema.boolean().default(false),
+  compactTools: Schema.boolean().default(false),
   turnUsageRow: Schema.boolean().default(false),
   promptSessionLabel: Schema.boolean().default(false),
   expandEditor: Schema.boolean().default(true),
