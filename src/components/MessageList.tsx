@@ -250,6 +250,7 @@ function signatureParts(
   displayTextLen: number,
   sessionCwd: string | undefined,
   fullscreen: boolean,
+  turnLedger: boolean,
 ): Array<string | number | boolean> {
   signatureScratch.length = 0
   // Universal height inputs: width reflows every row; kind switches height
@@ -350,8 +351,9 @@ function signatureParts(
       signatureScratch.push(expanded, expandedRows.has(row.id))
       break
     case 'turn-summary':
-      // Immutable payload, single truncate-end line: the kind switch alone
-      // covers the height semantics (content never changes after creation).
+      // Immutable payload: the ledger is one truncate-end line, the
+      // `Worked for` line one line under a blank one.
+      signatureScratch.push(turnLedger)
       break
     case 'user':
       // T06: the selection indicator line above the bubble adds one rendered
@@ -958,6 +960,7 @@ export function MessageList({
         revealDisplayLen(row, smoothStreaming),
         sessionCwd,
         fullscreen,
+        turnUsageRow,
       )
       const cachedParts = sigs.get(row.id)
       let same = false
@@ -2129,10 +2132,10 @@ function TranscriptRow({
       // against).
       if (turnUsage === undefined) return null
       if (!turnLedger) {
-        // `turnDuration`: one dim line in the bullet column, no margin (the
-        // ledger's height, so the cached row heights hold either way).
+        // `turnDuration`: one dim line in the bullet column, set off from
+        // the answer by a blank line.
         return (
-          <Box flexDirection="row" ref={ref}>
+          <Box flexDirection="row" marginTop={1} ref={ref}>
             <Box flexShrink={0} width={2}><Text dimColor>✻</Text></Box>
             <Text dimColor wrap="truncate">{t('turn-worked-for', { time: formatDuration(turnUsage.durationMs) })}</Text>
           </Box>
