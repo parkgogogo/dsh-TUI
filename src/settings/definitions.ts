@@ -58,8 +58,8 @@ export const SETTING_DEFINITIONS = {
     label: 'Compact tool cards',
     descriptions: { zh: '紧凑工具卡' },
     group: 'conversation',
-    hint: 'Read, search and terminal calls (Bash/PowerShell, file reads, image reads, glob/grep) show as one dim summary line from the first call on, and consecutive ones share it: `Read 2 files, ran 3 shell commands`. The line grows in place — a new call changes a count, a kind still running reads `running 1 shell command…`. No output, no per-call timer. Errors, non-zero exits, edits and assistant text stay as their own cards. Ctrl+O or a click expands.',
-    hintDescriptions: { zh: '读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是一行灰色摘要，连续的共用这一行：`读取了 2 个文件，运行了 3 条命令`。摘要原地增长：新调用只改计数，还在运行的种类写成「正在运行 1 条命令…」。不显示输出，也不逐条计时。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。' },
+    hint: 'Read, search and terminal calls (Bash/PowerShell, file reads, image reads, glob/grep) show as two dim summary lines from the first call on, and consecutive ones share them: the sentence `Read 2 files, ran 3 shell commands` and `⎿  $ cat x.txt`, the newest call. A new call only rewrites the two lines; a kind still running reads `running 1 shell command…`. No output, no per-call timer. Errors, non-zero exits, edits and assistant text stay as their own cards. Ctrl+O or a click expands.',
+    hintDescriptions: { zh: '读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是两行灰色摘要，连续的共用这两行：第一行是 `读取了 2 个文件，运行了 3 条命令`，第二行 `⎿  $ cat x.txt` 是最近一次调用。新调用只改这两行的文字，还在运行的种类写成「正在运行 1 条命令…」。不显示输出，也不逐条计时。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。' },
     kind: 'boolean',
   },
   'companion.skin': {
@@ -282,6 +282,14 @@ export const SETTING_DEFINITIONS = {
       { value: 'scrollbar', label: 'Scrollbar', descriptions: { zh: '滚动条' } },
       { value: 'hidden', label: 'Hidden', descriptions: { zh: '隐藏' } },
     ],
+  },
+  'sidePanel.escCloses': {
+    label: 'Esc closes the side panel',
+    descriptions: { zh: 'Esc 关闭侧栏' },
+    group: 'side-panel',
+    hint: 'On: Esc in the side column (including the /btw input) closes the column and returns to the chat. Off (default): Esc only moves the focus back to the chat and the column stays open. Applies immediately.',
+    hintDescriptions: { zh: '开启：在侧栏里（包括 /btw 的输入框）按 Esc 直接关闭侧栏并回到对话。关闭（默认）：Esc 只把焦点交回对话，侧栏保持展开。立即生效。' },
+    kind: 'boolean',
   },
   'sidePanel.open': {
     label: 'Side panel starts open',
@@ -523,6 +531,14 @@ export const SETTING_DEFINITIONS = {
       { value: 'strong', label: 'Strong', descriptions: { zh: '明显' } },
     ],
   },
+  'turnDuration': {
+    label: 'Turn duration',
+    descriptions: { zh: '回合用时' },
+    group: 'rendering',
+    hint: 'Close each finished turn with one dim line saying how long it worked: `✻ Worked for 1m 12s`. Off by default. An interrupted turn keeps only its interrupt notice. With the turn usage row on, that ledger shows instead.',
+    hintDescriptions: { zh: '每个结束的回合末尾加一行灰色的用时：`✻ 用时 1m 12s`。默认关闭。被中断的回合只保留中断提示。开启回合用量行时显示用量行。' },
+    kind: 'boolean',
+  },
   'turnUsageRow': {
     label: 'Turn usage row',
     descriptions: { zh: '回合用量行' },
@@ -554,6 +570,18 @@ export const SETTING_DEFINITIONS = {
     hint: 'Welcome-phase idle behaviors: after the intro the whale flutters its fins, thumps its tail, and dozes off when idle; clicking wakes a dozing whale and pops a heart. The first agent turn freezes it to the static standard frame.',
     hintDescriptions: { zh: '欢迎期闲置行为：开屏后鲸鱼娘摆鱼鳍、偶尔拍尾巴，空闲会睡着冒 Z；点击唤醒睡着的鲸鱼娘并冒爱心。开始第一个任务后定格为静态标准帧。' },
     kind: 'boolean',
+  },
+  'workingLine': {
+    label: 'Working line',
+    descriptions: { zh: '工作状态行' },
+    group: 'conversation',
+    hint: 'The line above the prompt while a turn runs. Classic (default): the verb with its counters in parentheses. Ticker: the newest reasoning words roll after the verb on that one line, and time · output tokens · generation speed (tok/s, this turn) sit at the right edge. Applies immediately.',
+    hintDescriptions: { zh: '回合进行时输入框上方的那一行。经典（默认）：动词加括号里的计数。滚动：思考的最新内容在这一行动词后面滚动显示，右侧是用时 · 输出 token · 生成速度（tok/s，本回合）。立即生效。' },
+    kind: 'select',
+    options: [
+      { value: 'classic', label: 'Classic', descriptions: { zh: '经典' } },
+      { value: 'ticker', label: 'Ticker', descriptions: { zh: '滚动' } },
+    ],
   },
 } satisfies Record<string, SettingDefinition>
 

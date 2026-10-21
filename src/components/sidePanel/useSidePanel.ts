@@ -24,6 +24,7 @@ import { actionMatches } from '../../utils/keymap.js'
 import {
   applySidePanelOpen,
   applySidePanelRatio,
+  getSidePanelEscCloses,
   getSidePanelOpen,
   getSidePanelPanels,
   getSidePanelRatio,
@@ -257,6 +258,14 @@ export function useSidePanel(options: UseSidePanelOptions): SidePanelController 
     // meta pass-through must NOT claim it — Esc belongs to the panel
     // first (Detail → Dashboard) and then to the host fallback (→ chat).
     if (key.ctrl === true || (key.meta === true && key.escape !== true)) return false
+    // `sidePanel.escCloses`: Esc closes the column before any panel layer
+    // (the btw composer, a subagent detail) can claim it.
+    if (key.escape === true && getSidePanelEscCloses()) {
+      applySidePanelOpen(false)
+      setFocus('chat')
+      stop()
+      return true
+    }
     // v2.1 第一棒：活动 Panel 的业务键优先（Subagent Detail 的 ←/→ 翻页、
     // Esc 返回 Dashboard 都先由它自己决定）；它没吃才轮到宿主回退键。
     if (activePanelId !== undefined && runtime.dispatchKey(activePanelId, input, key)) {

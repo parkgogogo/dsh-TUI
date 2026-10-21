@@ -38,6 +38,7 @@ export function WorkingSpinner({
   pauseStartTimeRef,
   thinkingStatus,
   suffix,
+  ticker,
 }: {
   mode: SpinnerMode
   hasActiveTools: boolean
@@ -51,6 +52,8 @@ export function WorkingSpinner({
   /** Extra leading field (e.g. the auto-compaction badge) shown before the
    *  timer/token counters; omitted for an ordinary turn. */
   suffix?: string
+  /** Ticker layout (settings `dsh-tui.workingLine`), see SpinnerAnimationRow. */
+  ticker?: { readonly thought: string; readonly tps: number | undefined }
 }): React.ReactNode {
   const { columns } = useTerminalSize()
 
@@ -80,6 +83,7 @@ export function WorkingSpinner({
         verbose
         columns={columns}
         thinkingStatus={thinkingStatus}
+        ticker={ticker}
       />
     </Box>
   )

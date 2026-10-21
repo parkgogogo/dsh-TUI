@@ -145,7 +145,7 @@ import { HistorySearchDialog } from '../components/HistorySearchDialog.js'
 import { RewindPicker } from '../components/RewindPicker.js'
 import { BtwPanelFallback } from '../components/BtwPanel.js'
 import { btwThreads } from '../components/sidePanel/btw/threads.js'
-import { getBtwContextBudget, getBtwContextTurns } from '../tuiDisplayPrefs.js'
+import { getBtwContextBudget, getBtwContextTurns, getWorkingLine, subscribeWorkingLine } from '../tuiDisplayPrefs.js'
 import { BtwThreadScene } from '../components/sidePanel/btw/BtwThreadScene.js'
 import { RecapPanel } from '../components/RecapPanel.js'
 import { isValidSessionColor, SESSION_COLOR_NAMES } from '../terminal-utils/sessionColors.js'
@@ -402,6 +402,19 @@ const EMPTY_KERNEL_ENTRIES: readonly KernelEntry[] = []
  *  image, so the same image staged twice is dismissed per token. */
 function peekKey(image: TranscriptImage, title: string | undefined): string {
   return `${title ?? ''} ${image.id}`
+}
+
+
+/** The reasoning still streaming, as one line for the ticker working line:
+ *  only its tail matters (the row keeps growing), markdown marks dropped. */
+function liveThought(rows: readonly ChatRow[]): string {
+  for (let i = rows.length - 1; i >= 0 && i >= rows.length - 8; i--) {
+    const row = rows[i]!
+    if (row.kind !== 'reasoning') continue
+    if (row.streaming !== true) return ''
+    return row.text.slice(-400).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim()
+  }
+  return ''
 }
 
 export function Chat({
@@ -2346,6 +2359,20 @@ export function Chat({
   uploadTokensRef.current = lastUploadTokens
   loadingStartTimeRef.current = channel.turnStart
   const thinkingStatus = useThinkingStatus(channel.spinnerMode === 'thinking')
+  // Ticker working line (settings `dsh-tui.workingLine`): the newest words
+  // of the reasoning still streaming, and this turn's tok/s. `channel.tps`
+  // holds the previous turn's reading until this turn decodes for a
+  // moment, so the value at turn start is kept aside and hidden.
+  const workingLine = React.useSyncExternalStore(subscribeWorkingLine, getWorkingLine)
+  const tpsAtTurnStartRef = React.useRef<{ working: boolean; tps: number | undefined }>({ working: false, tps: undefined })
+  if (channel.working && !tpsAtTurnStartRef.current.working) tpsAtTurnStartRef.current = { working: true, tps: channel.tps }
+  else if (!channel.working && tpsAtTurnStartRef.current.working) tpsAtTurnStartRef.current = { working: false, tps: undefined }
+  const workingTicker = workingLine !== 'ticker' || !channel.working
+    ? undefined
+    : {
+        thought: liveThought(channel.rows),
+        tps: channel.tps !== tpsAtTurnStartRef.current.tps ? channel.tps : undefined,
+      }
 
   // Terminal tab title: the session
   // title when set, else "dsh-TUI"; a `⠂/⠐` spinner prefix while a turn is
@@ -7067,6 +7094,7 @@ export function Chat({
                 pauseStartTimeRef={pauseStartTimeRef}
                 thinkingStatus={thinkingStatus}
                 suffix={compactionBadge}
+                ticker={workingTicker}
               />
             ))}
         {!channel.working && channel.compaction !== undefined && (

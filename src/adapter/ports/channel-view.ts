@@ -426,6 +426,9 @@ export interface ToolGroupRow {
   size: number
   /** Call counts per kind in first-seen order; `live` while one still runs. */
   kinds: ReadonlyArray<{ kind: ToolGroupKind; count: number; live: boolean }>
+  /** One line naming the run's newest call (`$ ls`, `Read x.txt`), drawn
+   *  under the summary while the run is folded. */
+  latest: string
 }
 
 export interface JobGroupRow {

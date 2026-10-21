@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Text } from '../../ui.js'
 import type { ChatRow, ToolGroupKind, ToolGroupRow, ToolRow } from '../../adapter/ports/channel-view.js'
 import { t, type I18nKey } from '../../i18n.js'
+import { displayName } from '../messages/AssistantToolUseMessage.js'
 
 /** Tool ids that read or run without changing files, for backends whose
  *  views do not say (a generic card): these may join a folded run. */
@@ -44,9 +45,30 @@ export function toolKind(tool: ToolRow): ToolGroupKind {
 }
 
 /** Hash input for the visible-rows cache: tool statuses land in place, and
- *  a status change can split a run or fold a member. */
+ *  a status change can split a run or fold a member. The title can land
+ *  after the call row does, and the run's `latest` line names it. */
 export function toolGroupCode(tool: ToolRow): number {
-  return (tool.status === 'running' ? 1 : tool.status === 'error' ? 2 : 3) + (toolGroupable(tool) ? 4 : 0)
+  const title = tool.resultView?.title ?? tool.callView?.title
+  return (tool.status === 'running' ? 1 : tool.status === 'error' ? 2 : 3) + (toolGroupable(tool) ? 4 : 0) + 8 * (title?.length ?? 0)
+}
+
+const LATEST_MAX_CHARS = 240
+
+/**
+ * One line naming a call for the run's `⎿` line: a command as `$ <first
+ * line>`, any other call by its card title (`Read x.txt`), else the tool
+ * name and its arguments.
+ */
+export function toolLatestLine(tool: ToolRow): string {
+  const view = tool.resultView ?? tool.callView
+  const title = tool.resultView?.title ?? tool.callView?.title
+  const name = displayName(tool.name, view?.displayKey ?? tool.callView?.displayKey)
+  const raw = title !== undefined && title !== ''
+    ? toolKind(tool) === 'shell' ? `$ ${title}` : title
+    : tool.argsText === '' ? name : `${name} ${tool.argsText}`
+  const newline = raw.indexOf('\n')
+  const first = (newline === -1 ? raw : raw.slice(0, newline)).replace(/\s+/g, ' ').trim()
+  return first.length > LATEST_MAX_CHARS ? `${first.slice(0, LATEST_MAX_CHARS)}…` : first
 }
 
 /**
@@ -76,10 +98,12 @@ export function foldToolRuns(
     }
     const kinds = new Map<ToolGroupKind, { count: number; live: boolean }>()
     let size = 0
+    let latest = ''
     for (let k = i; k <= end; k++) {
       const tool = out[k]!.kind === 'tool' ? out[k]!.tool : undefined
       if (tool === undefined) continue
       size++
+      latest = toolLatestLine(tool)
       const kind = toolKind(tool)
       const entry = kinds.get(kind) ?? { count: 0, live: false }
       entry.count++
@@ -91,6 +115,7 @@ export function foldToolRuns(
       folded,
       size,
       kinds: [...kinds].map(([kind, { count, live }]) => ({ kind, count, live })),
+      latest,
     }
     for (let k = i; k <= end; k++) {
       const row = out[k]!
@@ -99,6 +124,18 @@ export function foldToolRuns(
     }
     i = end
   }
+}
+
+/** Paths under the session directory read relative on the `⎿` line
+ *  (`Read y.txt`); macOS reports /var paths as /private/var too. */
+function relativeToCwd(line: string, cwd: string | undefined): string {
+  if (cwd === undefined || cwd === '' || cwd === '/') return line
+  const base = cwd.endsWith('/') ? cwd : `${cwd}/`
+  let out = line
+  for (const prefix of base.startsWith('/private/') ? [base, base.slice('/private'.length)] : [`/private${base}`, base]) {
+    out = out.split(prefix).join('')
+  }
+  return out
 }
 
 const KIND_KEYS: Record<ToolGroupKind, readonly [done: I18nKey, live: I18nKey]> = {
@@ -128,22 +165,37 @@ export function toolGroupSummary(group: Pick<ToolGroupRow, 'kinds'>): string {
 }
 
 /**
- * Summary line of a tool run (`row.toolGroup` on its head): one dim line
- * aligned with the transcript text, like `Ran 2 shell commands`. Clicking
- * it toggles the run, the same gesture as the job-group header.
+ * Summary of a tool run (`row.toolGroup` on its head), aligned with the
+ * transcript text. Folded, it is always two dim lines — the sentence and the
+ * newest call — so every new call rewrites them in place:
+ *
+ *   Ran 3 shell commands, read 1 file
+ *   ⎿  $ cat x.txt
+ *
+ * Unfolded, the cards below name the calls and only the sentence stays.
+ * Clicking it toggles the run, the same gesture as the job-group header.
  */
-export function ToolGroupHeader({ group, onToggle }: { group: ToolGroupRow; onToggle?(): void }): React.ReactNode {
+export function ToolGroupHeader({ group, cwd, onToggle }: { group: ToolGroupRow; cwd?: string; onToggle?(): void }): React.ReactNode {
   const [hovered, setHovered] = React.useState(false)
   return (
     <Box
-      flexDirection="row"
+      flexDirection="column"
       onClick={onToggle}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      {/* The bullet column of the rows around it, left blank. */}
-      <Box flexShrink={0} width={2} />
-      <Text wrap="truncate-end" dimColor={!hovered}>{toolGroupSummary(group)}</Text>
+      <Box flexDirection="row">
+        {/* The bullet column of the rows around it, left blank. */}
+        <Box flexShrink={0} width={2} />
+        <Text wrap="truncate-end" dimColor={!hovered}>{toolGroupSummary(group)}</Text>
+      </Box>
+      {group.folded && (
+        <Box flexDirection="row">
+          <Box flexShrink={0} width={2} />
+          <Box flexShrink={0} width={3}><Text dimColor>⎿</Text></Box>
+          <Text wrap="truncate-end" dimColor>{relativeToCwd(group.latest, cwd)}</Text>
+        </Box>
+      )}
     </Box>
   )
 }

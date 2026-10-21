@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import { getLang, subscribeLang, t, type Lang } from '../i18n.js'
+import { formatDuration } from '../terminal-utils/format.js'
 import { Box, Text, useTerminalSize, type ScrollBoxHandle } from '../ui.js'
 import type { ClickEvent } from '../ink/events/click-event.js'
 import type { ChatRow, ToolRow, ToolCallView, ToolResultView, SubagentRow, JobGroupRow, JobRow } from '../dsh-adapter/channel.js'
 import type { TurnUsageSummary } from '../adapter/ports/channel-view.js'
-import type { JobGroupFoldMode } from '../tuiDisplayPrefs.js'
+import { getTurnDuration, subscribeTurnDuration, type JobGroupFoldMode } from '../tuiDisplayPrefs.js'
 import { normalizeIdePath } from '../dsh-adapter/ide-channel.js'
 import type { TranscriptImage } from '../dsh-adapter/transcript-images.js'
 import type { DOMElement } from '../ink/dom.js'
@@ -553,6 +554,10 @@ export function MessageList({
   suppressImageGraphics?: boolean
 }) {
   const lang = React.useSyncExternalStore(subscribeLang, getLang)
+  // `Worked for 12s` rides the same turn-summary rows as the usage ledger.
+  const turnDuration = React.useSyncExternalStore(subscribeTurnDuration, getTurnDuration)
+  // 0 off, 1 duration line, 2 usage ledger — the window filter differs per mode.
+  const turnRowOn = turnUsageRow ? 2 : turnDuration ? 1 : 0
   const hiddenCount = rows.length - RENDERED_ROW_CAP
   // The thinking filter runs BEFORE virtualization so window indices line up.
   //
@@ -578,9 +583,10 @@ export function MessageList({
     /** Job-status/toggle fingerprint (see below): job cards settle IN PLACE,
      *  and a settling run changes how — and whether — its members render. */
     jobsSig: number
-    /** Turn-usage row toggle: flipping it adds/removes turn-summary rows
-     *  from the visible window without touching the row array. */
-    turnRowOn: boolean
+    /** Turn-usage row / turn-duration toggles: flipping either adds or
+     *  removes turn-summary rows from the visible window without touching
+     *  the row array. */
+    turnRowOn: number
   } | null>(null)
   /** Generation counter for the visibleRows cache (timeline memo key). */
   const visGenRef = React.useRef(0)
@@ -621,7 +627,7 @@ export function MessageList({
     visibleCache.showAll !== (showAll || hiddenCount <= 0) ||
     visibleCache.thinkingVisible !== thinkingVisible ||
     visibleCache.jobsSig !== jobsSig ||
-    visibleCache.turnRowOn !== turnUsageRow ||
+    visibleCache.turnRowOn !== turnRowOn ||
     !streamBitsSame
   ) {
     const sliced = showAll || hiddenCount <= 0
@@ -673,7 +679,9 @@ export function MessageList({
     // pure PRESENTATION gate — filtering here (not render-null) keeps the
     // row out of the window entirely, so no cached height or mounted node
     // survives the toggle. The ledger data itself is collected regardless.
-    if (!turnUsageRow) out = out.filter(row => row.kind !== 'turn-summary')
+    if (turnRowOn === 0) out = out.filter(row => row.kind !== 'turn-summary')
+    // The duration line skips an interrupted turn: its notice says so.
+    else if (turnRowOn === 1) out = out.filter(row => row.kind !== 'turn-summary' || row.turnUsage?.outcome !== 'interrupted')
     // --- consecutive-job groups ------------------------------------------
     // A batch of run_in_background calls lands as N adjacent job cards (the
     // projection pushes the whole roster in one sync) and EVERY card pays
@@ -797,7 +805,7 @@ export function MessageList({
       margins,
       streamBits,
       jobsSig,
-      turnRowOn: turnUsageRow,
+      turnRowOn,
     }
     visGenRef.current++
   }
@@ -1645,6 +1653,7 @@ export function MessageList({
               toolLiveOutputDropped={tool?.liveOutputDropped}
               fullscreen={fullscreen}
               turnUsage={row.turnUsage}
+              turnLedger={turnUsageRow}
               subagent={subagent}
               job={job}
               jobGroup={jobGroup}
@@ -1752,6 +1761,9 @@ type MemoRowProps = {
   /** Turn-summary payload (kind === 'turn-summary'); set-once immutable
    *  ref created at turn.end, so a plain ref compare is complete. */
   turnUsage: TurnUsageSummary | undefined
+  /** Turn-summary rows draw the usage ledger (`turnUsageRow`); otherwise
+   *  they are the `Worked for 12s` line (`turnDuration`). */
+  turnLedger: boolean
   // SubagentRow, stable ref (subagent lifecycle events update the store, not
   // the row ref itself, so a plain ref compare stays correct).
   subagent: SubagentRow | undefined
@@ -1842,6 +1854,7 @@ function TranscriptRow({
   toolLiveOutputDropped,
   fullscreen,
   turnUsage,
+  turnLedger,
   subagent,
   job,
   jobGroup,
@@ -2066,7 +2079,7 @@ function TranscriptRow({
       const showHeader = toolGroup !== undefined && (toolGroup.folded || toolGroup.size > 1)
       return (
         <Box flexDirection="column" ref={ref} marginTop={toolGroup !== undefined && marginTopOnTurn ? 1 : 0}>
-          {showHeader && <ToolGroupHeader group={toolGroup} onToggle={toggleJobGroup} />}
+          {showHeader && <ToolGroupHeader group={toolGroup} cwd={sessionCwd} onToggle={toggleJobGroup} />}
           {showCard && <ToolLeafRow
             tool={tool}
             marginTopOnTurn={toolGroup === undefined && marginTopOnTurn}
@@ -2115,6 +2128,16 @@ function TranscriptRow({
       // the transcript's right margin (an auto-width row has nothing to push
       // against).
       if (turnUsage === undefined) return null
+      if (!turnLedger) {
+        // `turnDuration`: one dim line in the bullet column, no margin (the
+        // ledger's height, so the cached row heights hold either way).
+        return (
+          <Box flexDirection="row" ref={ref}>
+            <Box flexShrink={0} width={2}><Text dimColor>✻</Text></Box>
+            <Text dimColor wrap="truncate">{t('turn-worked-for', { time: formatDuration(turnUsage.durationMs) })}</Text>
+          </Box>
+        )
+      }
       return (
         <Box paddingLeft={2} width="100%" flexDirection="row" justifyContent="flex-end" ref={ref}>
           <TurnUsageRow usage={turnUsage} />

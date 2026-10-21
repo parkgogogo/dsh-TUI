@@ -27,6 +27,24 @@ function trianglePulse(time: number, period: number): number {
   return phase < 0.5 ? phase * 2 : 2 - phase * 2
 }
 
+/** The END of `text` that fits `width` cells, `…`-led when cut: a ticker
+ *  showing the newest words, so new text scrolls the line left. */
+function tailToWidth(text: string, width: number): string {
+  if (stringWidth(text) <= width) return text
+  const chars = Array.from(text)
+  let used = 1
+  let start = chars.length
+  while (start > 0) {
+    const next = stringWidth(chars[start - 1]!)
+    if (used + next > width) break
+    used += next
+    start--
+  }
+  return `…${chars.slice(start).join('')}`
+}
+
+const TICKER_MIN_WIDTH = 8
+
 function easeToward(current: number, target: number, elapsedMs: number, responseMs: number): number {
   if (elapsedMs <= 0) return current
   const amount = 1 - Math.exp(-elapsedMs / responseMs)
@@ -54,6 +72,11 @@ export type SpinnerAnimationRowProps = {
   columns: number
   /** 'thinking' while reasoning streams; number = duration (ms) after it ends. */
   thinkingStatus: 'thinking' | number | null
+  /** Ticker layout (settings `dsh-tui.workingLine: ticker`): the newest
+   *  reasoning words roll after the verb, and time · tokens · tok/s sit at
+   *  the right edge without parentheses. `thought` is '' when nothing is
+   *  being thought; `tps` is this turn's generation speed once measured. */
+  ticker?: { readonly thought: string; readonly tps: number | undefined }
 }
 
 /**
@@ -78,6 +101,7 @@ export function SpinnerAnimationRow({
   verbose,
   columns,
   thinkingStatus,
+  ticker,
 }: SpinnerAnimationRowProps): React.ReactNode {
   const [viewportRef, time] = useAnimationFrame(reducedMotion ? null : 50)
 
@@ -146,6 +170,45 @@ export function SpinnerAnimationRow({
     ? `↑ ${formatNumber(uploadTokens)} · ↓ ${tokenCount} tokens`
     : `↓ ${tokenCount} tokens`
   const tokensWidth = stringWidth(tokensLabel)
+
+  if (ticker !== undefined) {
+    const stats = spinnerSuffix ? [spinnerSuffix, timerText] : [timerText]
+    if (leaderTokens > 0) stats.push(`↓ ${tokenCount} tokens`)
+    if (ticker.tps !== undefined && Number.isFinite(ticker.tps) && ticker.tps > 0) stats.push(`${Math.round(ticker.tps)} tok/s`)
+    const statsText = stats.join(' · ')
+    // glyph 2 + verb + its trailing space (GlimmerMessage) + two cells
+    // before the stats.
+    const room = columns - 2 - glimmerMessageWidth - 1 - stringWidth(statsText) - 2
+    const thought = room >= TICKER_MIN_WIDTH && ticker.thought !== '' ? tailToWidth(ticker.thought, room) : ''
+    return (
+      <Box ref={viewportRef} flexDirection="row" marginTop={1} width="100%">
+        <SpinnerGlyph
+          frame={frame}
+          messageColor={messageColor}
+          stalledIntensity={stalledIntensity}
+          reducedMotion={reducedMotion}
+          time={time}
+        />
+        <Box flexShrink={0}>
+          <GlimmerMessage
+            message={message}
+            mode={mode}
+            messageColor={messageColor}
+            glimmerIndex={glimmerIndex}
+            flashOpacity={flashOpacity}
+            shimmerColor={shimmerColor}
+            stalledIntensity={stalledIntensity}
+          />
+        </Box>
+        <Box flexGrow={1} flexShrink={1} paddingRight={2}>
+          <Text dimColor italic wrap="truncate">{thought}</Text>
+        </Box>
+        <Box flexShrink={0}>
+          <Text dimColor>{statsText}</Text>
+        </Box>
+      </Box>
+    )
+  }
 
   // === Thinking text (may shrink to fit) ===
   let thinkingText =

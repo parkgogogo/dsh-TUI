@@ -590,7 +590,10 @@ dsh-tui 自身区块在 0.1.7 写入当前 profile 的 `cordis.patch.yml`，旧�
 | scrollGutter | 转录边栏：timeline（轮次时间线，默认）/ scrollbar（比例滚动条）/ hidden。立即生效 |
 | pageMargin | 页边距：整屏相对终端四边向里缩。预设 none / slim / normal（默认）/ roomy，或自定义 `NxM`（细节见下）。立即生效 |
 | foldTerminalCommand | 折叠终端命令（默认关）：终端卡（Bash/PowerShell）多行命令折成首行 + 计数；`Ctrl+O` 或点击卡片展开 |
-| compactTools | 紧凑工具卡（默认关）：读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是一行灰色摘要，连续的共用这一行：`读取了 2 个文件，运行了 3 条命令`。摘要原地增长：新调用只改计数，还在运行的种类写成「正在运行 1 条命令…」。不显示输出，也不逐条计时。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。 |
+| compactTools | 紧凑工具卡（默认关）：读文件、搜索、终端调用（Bash/PowerShell、读文件、读图片、glob/grep）从第一次调用起就是两行灰色摘要，连续的共用这两行：第一行是 `读取了 2 个文件，运行了 3 条命令`，第二行 `⎿  $ cat x.txt` 是最近一次调用。新调用只改这两行的文字，还在运行的种类写成「正在运行 1 条命令…」。不显示输出，也不逐条计时。报错、非零退出码、改文件和助手的文字照常单独显示。Ctrl+O 或点击展开。 |
+| turnDuration | 回合用时（默认关闭）：每个结束的回合末尾加一行灰色的 `✻ 用时 1m 12s`；被中断的回合只保留中断提示；开启 turnUsageRow 时显示用量行 |
+| workingLine | 工作状态行（默认 `classic`）：`classic` 动词加括号计数；`ticker` 在输入框上方这一行里滚动显示思考的最新内容，右侧是用时 · 输出 token · 本回合生成速度（tok/s）。立即生效 |
+| sidePanel.escCloses | Esc 关闭侧栏（默认关闭）：开启后在侧栏里（包括 /btw 输入框）按 Esc 直接关闭侧栏回到对话；关闭时 Esc 只把焦点交回对话 |
 | expandEditor | 全屏草稿编辑（默认开）：输入行尾 `⛶` 或 `Ctrl+Shift+E` 展开成整屏编辑器；`Ctrl+Enter` 发送、`Esc` 收起（草稿还在）；关掉后入口不显示 |
 | statusBar.* | 上表全部状态栏开关（compact/model/thinking/cwd/contextUsage/cache/tokens/cost/tps/gitBranch/sessionTitle/sessionId/mode/contextBar/activity/trajectory；statusBar.sessionId 是底栏显示开关，与 cordis 的启动 sessionId 无关） |
 

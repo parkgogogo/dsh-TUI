@@ -12,6 +12,7 @@ import { PanelBar, type PanelBarTab } from './PanelBar.js'
 import { PanelHost } from './PanelHost.js'
 import { panelStore } from './PanelStore.js'
 import { registerBuiltinPanels } from './builtinPanels.js'
+import { getSidePanelEscCloses, subscribeSidePanelEscCloses } from '../../tuiDisplayPrefs.js'
 import type { SidePanelController } from './useSidePanel.js'
 
 registerBuiltinPanels()
@@ -97,7 +98,8 @@ export function SidePanelColumn({ width, controller, channel, activity, attentio
     : activeEntry.hint !== undefined
       ? activeEntry.hint
       : activeEntry.definition.capabilities?.sendToChat === true ? t('panel-hint-send-to-chat') : ''
-  const focusedHint = t('panel-hint-focused')
+  const escCloses = React.useSyncExternalStore(subscribeSidePanelEscCloses, getSidePanelEscCloses)
+  const focusedHint = t(escCloses ? 'panel-hint-focused-close' : 'panel-hint-focused')
     + (panelSegment === '' ? '' : ' · ' + panelSegment)
     + ' · ' + t('panel-hint-zoom-width')
   // 标签点击与 ←/→ 宿主键走同一条路（openPanel 会顺带把焦点给右栏）。

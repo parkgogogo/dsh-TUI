@@ -4,7 +4,8 @@
  * already a run of one, so the summary line keeps one shape from the first
  * frame on; failures, edits and assistant text break a run; thinking after a
  * call joins it; frozen rows are never written. toolGroupSummary renders the
- * summary sentence (`Read 2 files, ran 1 shell command`).
+ * summary sentence (`Read 2 files, ran 1 shell command`); `latest` names the
+ * newest call for the `⎿` line under it.
  */
 process.env.DSH_TUI_LANG = 'en'
 import assert from 'node:assert/strict'
@@ -54,6 +55,14 @@ ok('kinds in first-seen order; only the running kind is progressive', () => {
   assert.equal(line([read('x.txt'), read('y.txt'), bash('ls', { status: 'running' })]), 'Read 2 files, running 1 shell command…')
   assert.equal(line([read('x.txt'), bash('ls'), read('y.txt')]), 'Read 2 files, ran 1 shell command')
   assert.equal(line([grep(), image(), bash('ls')]), 'Searched for 1 pattern, viewed 1 image, ran 1 shell command')
+})
+ok('latest names the newest call: $ command, card title, tool name', () => {
+  const latest = (rows: ChatRow[]) => run(rows).heads[0]!.toolGroup!.latest
+  assert.equal(latest([bash('ls'), bash('sleep 1 && echo two', { status: 'running' })]), '$ sleep 1 && echo two')
+  assert.equal(latest([bash('ls'), read('x.txt')]), 'Read x.txt')
+  assert.equal(latest([bash('cat <<EOF\nhi\nEOF')]), '$ cat <<EOF')
+  assert.equal(latest([grep()]), 'Grep')
+  assert.equal(latest([read('x.txt'), think(true)]), 'Read x.txt')
 })
 ok('non-zero exit splits the run and keeps its own card', () => {
   const { heads, out } = run([bash('a'), bash('ls /x', { exit: 1 }), bash('b')])

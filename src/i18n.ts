@@ -1077,6 +1077,7 @@ const dict = {
   'tool-run-web-live': { zh: '正在进行 {{count}} 次网页搜索', en: { one: 'running {{count}} web search', other: 'running {{count}} web searches' } },
   'tool-run-fetch': { zh: '抓取了 {{count}} 个网页', en: { one: 'fetched {{count}} page', other: 'fetched {{count}} pages' } },
   'tool-run-fetch-live': { zh: '正在抓取 {{count}} 个网页', en: { one: 'fetching {{count}} page', other: 'fetching {{count}} pages' } },
+  'turn-worked-for': { zh: '用时 {{time}}', en: 'Worked for {{time}}' },
   'tool-run-join': { zh: '，', en: ', ' },
 
   // ── 工具卡本体（AssistantToolUseMessage.tsx / SplitDiffView.tsx）─────
@@ -2362,6 +2363,7 @@ const dict = {
   // 底栏是拼出来的：导航（每个面板都有）→ 面板自己的能力键 → 列自身的缩放/调宽。
   // 拼序就是重要性：窄面板从尾部截断（truncate-end），面板键因此不会被列控制挤掉。
   'panel-hint-focused': { zh: 'Esc 聊天 · ←/→ 切换', en: 'Esc chat · ←/→ panels' },
+  'panel-hint-focused-close': { zh: 'Esc 关闭', en: 'Esc close' },
   // 声明 capabilities.sendToChat 的面板自己绑 s（btw/jobs 都是）。
   'panel-hint-send-to-chat': { zh: 's 送聊天', en: 's to chat' },
   'panel-hint-zoom-width': { zh: 'z 缩放 · +/- 调宽', en: 'z zoom · +/- width' },

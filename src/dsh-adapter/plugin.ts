@@ -61,7 +61,7 @@ import { shouldOfferOnboarding } from '../onboardingPrefs.js'
 import { resolveSessionCwd } from '../utils/workspaceRoot.js'
 import { LAUNCH_PROMPT_SENT_ENV, beginRestartAttempt, checkForTuiUpdate, installedTuiVersion, isBootDeadlockTarget, isStandaloneRuntime, isVersionNewer, logRestartEvent, resolveDshProfileName, resolveTuiUpdateTarget, restartTui, updateTuiAndRestart, writeHandoffNotice, writeLastRunRecord, type TuiRestartOptions } from '../update.js'
 import { getLang, isLang, resolveStartupLang, setLang, t, writeLangPref } from '../i18n.js'
-import { applyBtwContextBudget, applyBtwContextTurns, applyCodeFrameStyle, applyCompanionSkin, applyImageBacking, applyMathImageBacking, applyMathImageScale, applyMathRendering, applyMermaidDiagrams, applyPageMargin, applySidePanelOpen, applySidePanelRatio, applySidePanelSplitEnabled, BTW_CONTEXT_BUDGET_MAX, BTW_CONTEXT_BUDGET_MIN, BTW_CONTEXT_TURNS_MAX, BTW_CONTEXT_TURNS_MIN, DEFAULT_PAGE_MARGIN, DEFAULT_SIDE_PANEL_IDS, DEFAULT_STATUS_BAR, isPageMarginMode, normalizeJobGroupFold, normalizePageMargin, normalizeScrollGutter, normalizeSidePanelPanels, normalizeSidePanelRatio, normalizeStatusBar, normalizeToolBackground, parsePageMarginSpec, resolveMathRendering, SIDE_PANEL_ID_PATTERN, type CodeFrameStyle, type ImageBacking, type MathImageBacking, type MathImageScale, type MathRendering, type PageMarginSetting, type ScrollGutterMode, type StatusBarConfig, type ToolBackground } from '../tuiDisplayPrefs.js'
+import { applyBtwContextBudget, applyBtwContextTurns, applyCodeFrameStyle, applySidePanelEscCloses, applyTurnDuration, applyWorkingLine, applyCompanionSkin, applyImageBacking, applyMathImageBacking, applyMathImageScale, applyMathRendering, applyMermaidDiagrams, applyPageMargin, applySidePanelOpen, applySidePanelRatio, applySidePanelSplitEnabled, BTW_CONTEXT_BUDGET_MAX, BTW_CONTEXT_BUDGET_MIN, BTW_CONTEXT_TURNS_MAX, BTW_CONTEXT_TURNS_MIN, DEFAULT_PAGE_MARGIN, DEFAULT_SIDE_PANEL_IDS, DEFAULT_STATUS_BAR, isPageMarginMode, normalizeJobGroupFold, normalizePageMargin, normalizeScrollGutter, normalizeSidePanelPanels, normalizeSidePanelRatio, normalizeStatusBar, normalizeToolBackground, parsePageMarginSpec, resolveMathRendering, SIDE_PANEL_ID_PATTERN, type CodeFrameStyle, type ImageBacking, type MathImageBacking, type MathImageScale, type MathRendering, type PageMarginSetting, type ScrollGutterMode, type StatusBarConfig, type ToolBackground, type WorkingLineMode } from '../tuiDisplayPrefs.js'
 import {
   draftComboConflicts,
   effectiveComboString,
@@ -1103,6 +1103,9 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
   applyBtwContextBudget(config.btw?.contextBudget)
   applyMermaidDiagrams(config.mermaidDiagrams)
   applyCodeFrameStyle(config.codeFrameStyle)
+  applyWorkingLine(config.workingLine)
+  applyTurnDuration(config.turnDuration)
+  applySidePanelEscCloses(config.sidePanel?.escCloses)
   applyMathRendering(resolveMathRendering({}, config))
   applyMathImageScale(config.mathImageScale ?? 'auto')
   applyMathImageBacking(config.mathImageBacking ?? 'transparent')
@@ -1195,6 +1198,9 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
         mermaidDiagrams: Schema.boolean(),
         // Code-frame shape; unset keeps the light rail frame.
         codeFrameStyle: Schema.union(['light', 'full']),
+        // Unset keeps the classic working line / no turn duration row.
+        workingLine: Schema.union(['classic', 'ticker']),
+        turnDuration: Schema.boolean(),
         // Same no-default rule: resolveMathRendering falls back to cordis.yml.
         mathRendering: Schema.union(['auto', 'image', 'unicode', 'source']),
         // Display-formula image size; unset keeps the base (text) scale.
@@ -1239,6 +1245,7 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
         sidePanel: Schema.object({
           splitEnabled: Schema.boolean(),
           open: Schema.boolean(),
+          escCloses: Schema.boolean(),
           ratio: Schema.number(),
           panels: Schema.string(),
         }),
@@ -1332,6 +1339,8 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
       notificationMethod?: NotificationMethod
       mermaidDiagrams?: boolean
       codeFrameStyle?: CodeFrameStyle
+      workingLine?: WorkingLineMode
+      turnDuration?: boolean
       mathRendering?: MathRendering
       mathImageScale?: MathImageScale
       mathImageBacking?: MathImageBacking
@@ -1343,6 +1352,7 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
       sidePanel?: {
         splitEnabled?: boolean
         open?: boolean
+        escCloses?: boolean
         ratio?: number
         panels?: string
       }
@@ -1440,6 +1450,8 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
       taskNotifier.configure(value.taskNotifications ?? config.taskNotifications, value.notificationMethod ?? config.notificationMethod)
       applyMermaidDiagrams(value.mermaidDiagrams ?? config.mermaidDiagrams)
       applyCodeFrameStyle(value.codeFrameStyle ?? config.codeFrameStyle)
+      applyWorkingLine(value.workingLine ?? config.workingLine)
+      applyTurnDuration(value.turnDuration ?? config.turnDuration)
       applyMathRendering(resolveMathRendering(value, config))
       applyMathImageScale(value.mathImageScale ?? config.mathImageScale ?? 'auto')
       applyMathImageBacking(value.mathImageBacking ?? config.mathImageBacking ?? 'transparent')
@@ -1451,6 +1463,7 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
       // unset user layer falls back to cordis.yml, then to the store default.
       applySidePanelSplitEnabled(value.sidePanel?.splitEnabled ?? config.sidePanel?.splitEnabled)
       applySidePanelOpen(value.sidePanel?.open ?? config.sidePanel?.open)
+      applySidePanelEscCloses(value.sidePanel?.escCloses ?? config.sidePanel?.escCloses)
       applySidePanelRatio(value.sidePanel?.ratio ?? config.sidePanel?.ratio)
       // A registered panel missing from a live edit was unticked in /settings.
       const panelsCsv = value.sidePanel?.panels ?? config.sidePanel?.panels
@@ -1719,6 +1732,16 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
           ...settingField('codeFrameStyle'),
         },
         {
+          ...settingField('workingLine'),
+          format: value => String(value ?? config.workingLine ?? 'classic'),
+        },
+        {
+          ...settingField('turnDuration'),
+          format(value: unknown): string {
+            return String(typeof value === 'boolean' ? value : config.turnDuration === true)
+          },
+        },
+        {
           ...settingField('mathRendering'),
         },
         {
@@ -1816,6 +1839,12 @@ export async function apply(ctx: Context, runtimeConfig: RuntimeConfig<Config>, 
           format(value: unknown): string {
             // Unset in the user layer: the effective default is off.
             return String(typeof value === 'boolean' ? value : config.sidePanel?.open === true)
+          },
+        },
+        {
+          ...settingField('sidePanel.escCloses'),
+          format(value: unknown): string {
+            return String(typeof value === 'boolean' ? value : config.sidePanel?.escCloses === true)
           },
         },
         {

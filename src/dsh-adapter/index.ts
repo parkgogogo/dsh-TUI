@@ -12,7 +12,7 @@ import type { SessionModeSpec } from '../sessionModes.js'
 import type { NotificationMethod, TaskNotifications } from '../ink/terminal-notification.js'
 import { parseBackendChoice } from './backend-registry.js'
 import { parseBackendId, type KernelBackendId } from '../kernelPrefs.js'
-import { BTW_CONTEXT_BUDGET_DEFAULT, BTW_CONTEXT_TURNS_DEFAULT, DEFAULT_COMPANION_SKIN, DEFAULT_SIDE_PANEL_IDS, DEFAULT_STATUS_BAR, normalizeBtwContextBudget, normalizeBtwContextTurns, normalizeCompanionSkin, normalizePageMargin, normalizeSidePanelPanels, normalizeSidePanelRatio, type CodeFrameStyle, type ImageBacking, type MathImageBacking, type MathImageScale, type MathRendering, type PageMarginSetting, type ScrollGutterMode, type StatusBarConfig, type ToolBackground } from '../tuiDisplayPrefs.js'
+import { BTW_CONTEXT_BUDGET_DEFAULT, BTW_CONTEXT_TURNS_DEFAULT, DEFAULT_COMPANION_SKIN, DEFAULT_SIDE_PANEL_IDS, DEFAULT_STATUS_BAR, normalizeBtwContextBudget, normalizeBtwContextTurns, normalizeCompanionSkin, normalizePageMargin, normalizeSidePanelPanels, normalizeSidePanelRatio, type CodeFrameStyle, type ImageBacking, type MathImageBacking, type MathImageScale, type MathRendering, type PageMarginSetting, type ScrollGutterMode, type StatusBarConfig, type ToolBackground, type WorkingLineMode } from '../tuiDisplayPrefs.js'
 import { SHORTCUT_ACTIONS, type ShortcutActionId } from '../utils/keymap.js'
 import { normalizeSplashFont, type SplashFontSetting } from '../components/splashFonts.js'
 import { normalizeBrandSetting, type BrandSetting } from '../branding.js'
@@ -206,6 +206,13 @@ export interface Config {
    *  across wrapped rows) and a bottom edge. The narrow fallback (net
    *  body width < 8) always stays the plain ANSI fence. */
   codeFrameStyle?: CodeFrameStyle
+  /** Working line above the prompt (settings `dsh-tui.workingLine`):
+   *  `classic` (default) or `ticker` — the newest reasoning words roll after
+   *  the verb, time · tokens · tok/s sit on the right. */
+  workingLine?: WorkingLineMode
+  /** `Worked for 12s` under each finished turn (settings
+   *  `dsh-tui.turnDuration`, default off). */
+  turnDuration?: boolean
   /** LaTeX math (settings `dsh-tui.mathRendering`): `$…$` / `\(…\)` inline
    *  and `$$…$$` / `\[…\]` blocks in replies. `auto` (default) uses the best
    *  available renderer — today Unicode text: Greek and operator symbols,
@@ -253,6 +260,9 @@ export interface Config {
      *  all eight built-in panels). A
      *  malformed id is dropped, an unknown one survives for a plugin. */
     panels?: string
+    /** Esc closes the column instead of only focusing the chat (off by
+     *  default). */
+    escCloses?: boolean
   }
   /** Companion pet (settings `dsh-tui.companion.*`): which skin the panel
    *  pet wears. */
@@ -371,6 +381,8 @@ export const Config: Schema<Config, RuntimeConfig<Config>> = editableConfig<Conf
   notificationMethod: Schema.union(['auto', 'osc9', 'bel']),
   mermaidDiagrams: Schema.boolean().default(true),
   codeFrameStyle: Schema.union(['light', 'full']),
+  workingLine: Schema.union(['classic', 'ticker']),
+  turnDuration: Schema.boolean().default(false),
   mathRendering: Schema.union(['auto', 'image', 'unicode', 'source']),
   mathImageScale: Schema.union(['auto', 'large', 'xlarge']),
   mathImageBacking: Schema.union(['transparent', 'terminal']),
@@ -412,6 +424,7 @@ export const Config: Schema<Config, RuntimeConfig<Config>> = editableConfig<Conf
   sidePanel: Schema.object({
     splitEnabled: Schema.boolean().default(true),
     open: Schema.boolean().default(false),
+    escCloses: Schema.boolean().default(false),
     ratio: Schema.transform(
       Schema.number().default(0.68),
       value => normalizeSidePanelRatio(value),
@@ -420,7 +433,7 @@ export const Config: Schema<Config, RuntimeConfig<Config>> = editableConfig<Conf
       Schema.string().default(DEFAULT_SIDE_PANEL_IDS),
       value => normalizeSidePanelPanels(value),
     ),
-  }).default({ splitEnabled: true, open: false, ratio: 0.68, panels: DEFAULT_SIDE_PANEL_IDS }),
+  }).default({ splitEnabled: true, open: false, escCloses: false, ratio: 0.68, panels: DEFAULT_SIDE_PANEL_IDS }),
   companion: Schema.object({
     skin: Schema.transform(
       Schema.string().default(DEFAULT_COMPANION_SKIN),

@@ -209,6 +209,26 @@ export const subscribeMermaidDiagrams = mermaidDiagramsStore.subscribe
 export const getMermaidDiagrams = mermaidDiagramsStore.get
 export const applyMermaidDiagrams = mermaidDiagramsStore.apply
 
+/** Working line above the prompt while a turn runs (settings
+ *  `dsh-tui.workingLine`): `classic` (default) is the verb with its
+ *  parenthesized counters; `ticker` rolls the newest reasoning words after
+ *  the verb and right-aligns time · tokens · tok/s. */
+export type WorkingLineMode = 'classic' | 'ticker'
+export function normalizeWorkingLine(value: unknown): WorkingLineMode {
+  return value === 'ticker' ? 'ticker' : 'classic'
+}
+const workingLineStore = createLiveSetting<WorkingLineMode>('classic', normalizeWorkingLine)
+export const subscribeWorkingLine = workingLineStore.subscribe
+export const getWorkingLine = workingLineStore.get
+export const applyWorkingLine = workingLineStore.apply
+
+/** `Worked for 12s` under each finished turn (settings
+ *  `dsh-tui.turnDuration`, default off). */
+const turnDurationStore = createLiveSetting<boolean>(false, value => value === true)
+export const subscribeTurnDuration = turnDurationStore.subscribe
+export const getTurnDuration = turnDurationStore.get
+export const applyTurnDuration = turnDurationStore.apply
+
 /**
  * How fenced code blocks frame themselves (settings
  *  `dsh-tui.codeFrameStyle`): `light` (default) is the open rail frame
@@ -397,6 +417,13 @@ const sidePanelOpenStore = createLiveSetting<boolean>(false, value => normalizeB
 export const subscribeSidePanelOpen = sidePanelOpenStore.subscribe
 export const getSidePanelOpen = sidePanelOpenStore.get
 export const applySidePanelOpen = sidePanelOpenStore.apply
+
+/** Esc closes the side column (settings `dsh-tui.sidePanel.escCloses`,
+ *  default off: Esc only hands focus back to the chat). */
+const sidePanelEscClosesStore = createLiveSetting<boolean>(false, value => normalizeBoolean(value, false))
+export const subscribeSidePanelEscCloses = sidePanelEscClosesStore.subscribe
+export const getSidePanelEscCloses = sidePanelEscClosesStore.get
+export const applySidePanelEscCloses = sidePanelEscClosesStore.apply
 
 const sidePanelRatioStore = createLiveSetting<number>(0.68, normalizeSidePanelRatio)
 export const subscribeSidePanelRatio = sidePanelRatioStore.subscribe
